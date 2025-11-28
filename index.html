@@ -1,291 +1,363 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>TonEarn</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Майнинг</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: 'Segoe UI', Arial, sans-serif;
         }
-        
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #333;
+            background: linear-gradient(135deg, #1a1f2e, #0d1424);
+            color: #fff;
             min-height: 100vh;
             padding: 20px;
-            padding-bottom: 80px;
         }
-        
+
         .container {
             max-width: 400px;
             margin: 0 auto;
+        }
+
+        .header {
             text-align: center;
+            margin-bottom: 30px;
         }
-        
-        .card {
-            background: rgba(255, 255, 255, 0.95);
-            color: #333;
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(45deg, #00ff88, #00ccff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #8899aa;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .mining-card {
+            background: rgba(255, 255, 255, 0.05);
             border-radius: 20px;
-            padding: 30px;
-            margin: 20px 0;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            border: 2px solid #FFD700;
-        }
-        
-        h1 {
+            padding: 25px;
             margin-bottom: 20px;
-            color: #B8860B;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
         }
-        
-        .btn {
-            background: linear-gradient(135deg, #FFD700, #FFA500);
-            color: #333;
+
+        .balance {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .balance-label {
+            color: #8899aa;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .balance-amount {
+            font-size: 32px;
+            font-weight: 700;
+            color: #00ff88;
+        }
+
+        .reward-section {
+            background: rgba(0, 255, 136, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            border: 1px solid rgba(0, 255, 136, 0.3);
+        }
+
+        .reward-label {
+            color: #00ff88;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .reward-amount {
+            font-size: 24px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 15px;
+        }
+
+        .collect-btn {
+            background: linear-gradient(45deg, #00ff88, #00ccff);
             border: none;
-            padding: 15px 20px;
             border-radius: 12px;
+            color: #1a1f2e;
+            padding: 15px 30px;
             font-size: 16px;
+            font-weight: 700;
             cursor: pointer;
             width: 100%;
-            margin: 10px 0;
-            font-weight: bold;
+            transition: all 0.3s ease;
         }
-        
-        .user-info {
-            background: #FFF8DC;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 15px 0;
-            text-align: left;
-            border: 1px solid #FFD700;
+
+        .collect-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 255, 136, 0.4);
         }
-        
-        .stats {
+
+        .collect-btn:disabled {
+            background: #8899aa;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .timer {
+            text-align: center;
+            color: #8899aa;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .nav {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
             gap: 10px;
-            margin: 20px 0;
+            margin-top: 20px;
         }
-        
-        .stat-item {
-            background: #FFF8DC;
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-            border: 1px solid #FFD700;
-        }
-        
-        .stat-value {
-            font-weight: bold;
-            color: #B8860B;
-            font-size: 18px;
-        }
-        
-        .stat-label {
-            font-size: 12px;
-            color: #666;
-            margin-top: 5px;
-        }
-        
-        /* Нижнее меню */
-        .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: white;
-            display: flex;
-            justify-content: space-around;
-            padding: 10px 0;
-            border-top: 2px solid #FFD700;
-        }
-        
+
         .nav-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px 10px;
             text-align: center;
-            padding: 8px 12px;
-            border-radius: 10px;
             cursor: pointer;
-            transition: background 0.3s;
-            flex: 1;
-            margin: 0 5px;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
         }
-        
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
         .nav-item.active {
-            background: #FFF8DC;
-            color: #B8860B;
-            font-weight: bold;
+            background: rgba(0, 255, 136, 0.1);
+            border-color: rgba(0, 255, 136, 0.3);
+            color: #00ff88;
         }
-        
-        .nav-icon {
-            font-size: 20px;
-            margin-bottom: 4px;
+
+        .nav-item.active:hover {
+            background: rgba(0, 255, 136, 0.15);
         }
-        
-        .nav-label {
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00ff88;
+            animation: pulse 2s infinite;
+        }
+
+        .status-text {
+            color: #00ff88;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .info-text {
+            text-align: center;
+            color: #8899aa;
             font-size: 12px;
-        }
-        
-        .tab-content {
-            display: none;
-        }
-        
-        .tab-content.active {
-            display: block;
+            margin-top: 20px;
+            line-height: 1.4;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Главная вкладка -->
-        <div id="main-tab" class="tab-content active">
-            <div class="card">
-                <h1>🏆 TonEarn</h1>
-                <div class="user-info">
-                    <p>👤 Ваш ID: <b id="user-id">...</b></p>
-                    <p>💰 Баланс: <b>1.500000 TON</b></p>
-                </div>
-                
-                <div class="stats">
-                    <div class="stat-item">
-                        <div class="stat-value">0.250000</div>
-                        <div class="stat-label">Накопано</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">1.500000</div>
-                        <div class="stat-label">Депозиты</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">3</div>
-                        <div class="stat-label">Рефералов</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">1.45%</div>
-                        <div class="stat-label">Процент</div>
-                    </div>
-                </div>
-                
-                <button class="btn" onclick="closeApp()">⛏️ Открыть майнинг в боте</button>
-                <button class="btn" onclick="closeApp()">💰 Пополнить в боте</button>
-            </div>
+        <div class="header">
+            <h1>⚙️ Майнинг</h1>
+            <p>Всё управление происходит внутри мини-приложения. Не закрывайте его!</p>
         </div>
-        
-        <!-- Майнинг вкладка -->
-        <div id="mining-tab" class="tab-content">
-            <div class="card">
-                <h1>⛏️ Майнинг</h1>
-                <div class="user-info">
-                    <p>💡 Используйте бота для управления майнингом</p>
-                    <p>📊 Там доступна полная статистика</p>
-                    <p>⏰ Автоматическое начисление каждые 8 часов</p>
-                </div>
-                
-                <button class="btn" onclick="closeApp()">🚀 Открыть майнинг в боте</button>
-                <button class="btn" onclick="closeApp()">💎 Собрать награду</button>
-            </div>
-        </div>
-        
-        <!-- Рефералы вкладка -->
-        <div id="referrals-tab" class="tab-content">
-            <div class="card">
-                <h1>👥 Рефералы</h1>
-                <div class="user-info">
-                    <p>🔗 Ваша ссылка:</p>
-                    <p style="word-break: break-all; font-size: 12px;" id="referral-link">...</p>
-                    <p>👥 Приглашено: <b>3 человека</b></p>
-                    <p>💰 Заработано: <b>0.6 TON</b></p>
-                </div>
-                
-                <button class="btn" onclick="closeApp()">📋 Открыть рефералы в боте</button>
-                
-                <div class="user-info">
-                    <p><strong>🎁 Бонусы:</strong></p>
-                    <p>• Вам: <b>0.2 TON</b> за каждого</p>
-                    <p>• Другу: <b>0.1 TON</b> на старт</p>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Профиль вкладка -->
-        <div id="profile-tab" class="tab-content">
-            <div class="card">
-                <h1>👤 Профиль</h1>
-                <div class="user-info">
-                    <p>🆔 ID: <b id="profile-user-id">...</b></p>
-                    <p>📅 Регистрация: <b>28.11.2024</b></p>
-                    <p>⭐ Уровень: <b>Новичок</b></p>
-                </div>
-                
-                <div class="stats">
-                    <div class="stat-item">
-                        <div class="stat-value">1.500</div>
-                        <div class="stat-label">Баланс TON</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">0.347</div>
-                        <div class="stat-label">Заработано</div>
-                    </div>
-                </div>
-                
-                <button class="btn" onclick="closeApp()">💳 Пополнить в боте</button>
-                <button class="btn" onclick="closeApp()">💸 Вывести в боте</button>
-            </div>
-        </div>
-    </div>
 
-    <!-- Нижнее меню -->
-    <div class="bottom-nav">
-        <div class="nav-item active" onclick="showTab('main')">
-            <div class="nav-icon">🏆</div>
-            <div class="nav-label">Главная</div>
+        <div class="status-indicator">
+            <div class="status-dot"></div>
+            <div class="status-text">Майнинг активен</div>
         </div>
-        <div class="nav-item" onclick="showTab('mining')">
-            <div class="nav-icon">⛏️</div>
-            <div class="nav-label">Майнинг</div>
+
+        <div class="mining-card">
+            <div class="balance">
+                <div class="balance-label">Текущий баланс</div>
+                <div class="balance-amount" id="balance">0.00</div>
+            </div>
+
+            <div class="reward-section">
+                <div class="reward-label">Доступно к сбору</div>
+                <div class="reward-amount" id="reward">0.0000</div>
+                <button class="collect-btn" id="collectBtn" onclick="collectReward()">
+                    🎁 Собрать награду
+                </button>
+                <div class="timer" id="timer">Следующее начисление через: --:--:--</div>
+            </div>
         </div>
-        <div class="nav-item" onclick="showTab('referrals')">
-            <div class="nav-icon">👥</div>
-            <div class="nav-label">Рефералы</div>
+
+        <div class="nav">
+            <div class="nav-item" onclick="showSection('main')">🏠 Главная</div>
+            <div class="nav-item active" onclick="showSection('mining')">⚙️ Майнинг</div>
+            <div class="nav-item" onclick="showSection('referrals')">👥 Рефералы</div>
+            <div class="nav-item" onclick="showSection('profile')">👤 Профиль</div>
         </div>
-        <div class="nav-item" onclick="showTab('profile')">
-            <div class="nav-icon">👤</div>
-            <div class="nav-label">Профиль</div>
+
+        <div class="info-text">
+            Автоматическое начисление каждые 8 часов<br>
+            Работайте внутри приложения!
         </div>
     </div>
 
     <script>
-        // Инициализация Telegram Web App
-        let tg = window.Telegram.WebApp;
-        tg.expand();
-        
-        // Получаем данные пользователя
-        const user = tg.initDataUnsafe.user;
-        if (user) {
-            document.getElementById('user-id').textContent = user.id;
-            document.getElementById('profile-user-id').textContent = user.id;
-            document.getElementById('referral-link').textContent = 'https://t.me/tonearnro_bot?start=ref' + user.id;
+        let balance = 0;
+        let reward = 0;
+        let lastUpdate = Date.now();
+        const rewardInterval = 8 * 60 * 60 * 1000; // 8 часов в миллисекундах
+        let nextRewardTime = Date.now() + rewardInterval;
+
+        function updateReward() {
+            const now = Date.now();
+            const timePassed = now - lastUpdate;
+            const rewardPerMs = 0.0001 / (60 * 60 * 1000); // Награда за миллисекунду
+            
+            reward += timePassed * rewardPerMs;
+            reward = Math.min(reward, 0.01); // Максимальная награда за период
+            
+            lastUpdate = now;
+            updateDisplay();
         }
-        
-        // Функции для вкладок
-        function showTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
+
+        function updateDisplay() {
+            document.getElementById('balance').textContent = balance.toFixed(2);
+            document.getElementById('reward').textContent = reward.toFixed(4);
+            
+            // Обновление таймера
+            const now = Date.now();
+            const timeLeft = nextRewardTime - now;
+            
+            if (timeLeft > 0) {
+                const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+                
+                document.getElementById('timer').textContent = 
+                    `Следующее начисление через: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                document.getElementById('timer').textContent = 'Начисление готово!';
+                addAutoReward();
+            }
+        }
+
+        function addAutoReward() {
+            balance += reward;
+            reward = 0;
+            lastUpdate = Date.now();
+            nextRewardTime = Date.now() + rewardInterval;
+            updateDisplay();
+            
+            // Показать уведомление о авто-начислении
+            showNotification('Автоматическое начисление выполнено!');
+        }
+
+        function collectReward() {
+            if (reward > 0) {
+                balance += reward;
+                reward = 0;
+                lastUpdate = Date.now();
+                updateDisplay();
+                showNotification('Награда успешно собрана! 🎉');
+            } else {
+                showNotification('Нет доступной награды для сбора');
+            }
+        }
+
+        function showSection(section) {
+            // Убираем активный класс у всех кнопок
             document.querySelectorAll('.nav-item').forEach(item => {
                 item.classList.remove('active');
             });
             
-            document.getElementById(tabName + '-tab').classList.add('active');
-            document.querySelector(`.nav-item[onclick="showTab('${tabName}')"]`).classList.add('active');
+            // Добавляем активный класс текущей кнопке
+            event.target.classList.add('active');
+            
+            // Здесь можно добавить логику переключения разделов
+            showNotification(`Переход в раздел: ${getSectionName(section)}`);
         }
+
+        function getSectionName(section) {
+            const sections = {
+                'main': 'Главная',
+                'mining': 'Майнинг',
+                'referrals': 'Рефералы',
+                'profile': 'Профиль'
+            };
+            return sections[section] || section;
+        }
+
+        function showNotification(message) {
+            // Создаем уведомление
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: rgba(0, 255, 136, 0.9);
+                color: #1a1f2e;
+                padding: 15px 20px;
+                border-radius: 10px;
+                font-weight: 600;
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+            `;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Добавляем стилы для анимации уведомления
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Запускаем обновление каждую секунду
+        setInterval(updateReward, 1000);
         
-        // Просто закрываем Mini App и открываем бота
-        function closeApp() {
-            tg.close();
-        }
+        // Инициализация
+        updateDisplay();
     </script>
 </body>
 </html>
