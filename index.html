@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TonEarn - Майнинг TON</title>
     <style>
-        /* Все стили остаются без изменений */
+        /* Все стили остаются прежними */
         * {
             margin: 0;
             padding: 0;
@@ -472,21 +472,16 @@
 
         let timeLeft = 2 * 3600 + 45 * 60 + 30;
 
-        // Получение данных пользователя из Telegram
-        function initTelegramUser() {
-            // Проверяем, находимся ли мы в Telegram
+        // Получение данных пользователя
+        function initUserData() {
+            // Пробуем получить данные из Telegram
             if (window.Telegram && Telegram.WebApp) {
                 const tg = Telegram.WebApp;
-                
-                // Включаем приложение
                 tg.ready();
                 tg.expand();
                 
-                // Получаем данные пользователя
                 const user = tg.initDataUnsafe?.user;
-                
                 if (user) {
-                    // Получаем ник пользователя
                     if (user.username) {
                         userData.nickname = "@" + user.username;
                     } else if (user.first_name) {
@@ -495,16 +490,15 @@
                             userData.nickname += " " + user.last_name;
                         }
                     }
-                    
-                    // Обновляем ID пользователя
                     userData.user_id = user.id;
-                    
-                    console.log("Данные пользователя загружены:", user);
                 }
-            } else {
-                console.log("Telegram WebApp не доступен");
-                // Для тестирования в браузере - можно добавить демо-данные
-                // userData.nickname = "ДемоПользователь";
+            }
+            
+            // ДЛЯ ТЕСТИРОВАНИЯ В БРАУЗЕРЕ - получаем ник из URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const testNickname = urlParams.get('nickname');
+            if (testNickname) {
+                userData.nickname = testNickname;
             }
             
             updateUI();
@@ -641,7 +635,7 @@
 
         // Инициализация
         document.addEventListener('DOMContentLoaded', function() {
-            initTelegramUser();
+            initUserData();
             setInterval(updateTimer, 1000);
             setTimeout(() => {
                 showNotification('✨ Добро пожаловать в TonEarn!');
