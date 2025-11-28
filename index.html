@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Майнинг</title>
+    <title>TonEarn - Майнинг TON</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
             margin: 0;
@@ -13,54 +14,63 @@
         }
 
         body {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            background: linear-gradient(135deg, #fff9db 0%, #fff3bf 100%);
             color: #333;
             min-height: 100vh;
-            padding: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            padding: 0;
         }
 
         .container {
             max-width: 400px;
             width: 100%;
+            margin: 0 auto;
             background: white;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            overflow: hidden;
+            min-height: 100vh;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            position: relative;
         }
 
         .header {
             background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
-            padding: 30px 20px;
+            padding: 25px 20px;
             text-align: center;
             color: #333;
+            border-bottom: 3px solid #f59f00;
         }
 
         .header h1 {
-            font-size: 28px;
+            font-size: 24px;
             font-weight: 700;
             margin-bottom: 8px;
         }
 
         .header p {
-            font-size: 15px;
+            font-size: 14px;
             opacity: 0.9;
             line-height: 1.4;
         }
 
-        .mining-content {
-            padding: 30px 25px;
+        .content {
+            padding: 20px;
+            padding-bottom: 80px;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
         }
 
         .balance-card {
-            background: #f8f9fa;
+            background: linear-gradient(135deg, #fff9db 0%, #ffec99 100%);
             border-radius: 15px;
             padding: 25px;
             text-align: center;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             border: 2px solid #ffd700;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
         }
 
         .balance-label {
@@ -79,58 +89,66 @@
 
         .balance-currency {
             font-size: 16px;
-            color: #666;
+            color: #f59f00;
+            font-weight: 600;
         }
 
-        .mining-stats {
+        .stats-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 25px;
+            gap: 12px;
+            margin-bottom: 20px;
         }
 
         .stat-card {
             background: #f8f9fa;
             border-radius: 12px;
-            padding: 20px;
+            padding: 15px;
             text-align: center;
-            border: 1px solid #e9ecef;
+            border: 1px solid #ffd700;
         }
 
         .stat-value {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 700;
             color: #333;
             margin-bottom: 5px;
         }
 
         .stat-label {
-            font-size: 12px;
+            font-size: 11px;
             color: #666;
         }
 
-        .collect-btn {
+        .action-btn {
             background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
             border: none;
-            border-radius: 15px;
+            border-radius: 12px;
             color: #333;
-            padding: 18px;
-            font-size: 18px;
+            padding: 16px;
+            font-size: 16px;
             font-weight: 700;
             cursor: pointer;
             width: 100%;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
         }
 
-        .collect-btn:hover {
+        .action-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
         }
 
-        .collect-btn:active {
+        .action-btn:active {
             transform: translateY(0);
+        }
+
+        .action-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
 
         .timer-container {
@@ -139,7 +157,7 @@
             border-radius: 12px;
             padding: 15px;
             text-align: center;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
         }
 
         .timer-label {
@@ -154,16 +172,77 @@
             font-family: 'Courier New', monospace;
         }
 
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ffd700 0%, #ffed4a 100%);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .info-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid #ffd700;
+        }
+
+        .referral-code {
+            background: white;
+            border: 2px dashed #ffd700;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: 700;
+            margin: 15px 0;
+            color: #333;
+            word-break: break-all;
+        }
+
+        .profile-info {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .profile-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .profile-value {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
         .nav {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr 1fr;
             background: white;
-            border-top: 1px solid #e9ecef;
-            padding: 15px 10px;
+            border-top: 3px solid #ffd700;
+            padding: 12px 5px;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
         }
 
         .nav-item {
-            padding: 12px 5px;
+            padding: 10px 5px;
             text-align: center;
             cursor: pointer;
             border-radius: 10px;
@@ -171,6 +250,10 @@
             font-weight: 500;
             transition: all 0.3s ease;
             color: #666;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
         }
 
         .nav-item.active {
@@ -183,14 +266,8 @@
             background: #fff9db;
         }
 
-        .info-text {
-            text-align: center;
-            color: #666;
-            font-size: 12px;
-            padding: 15px;
-            line-height: 1.4;
-            background: #f8f9fa;
-            border-top: 1px solid #e9ecef;
+        .nav-icon {
+            font-size: 20px;
         }
 
         .notification {
@@ -207,26 +284,37 @@
             opacity: 0;
             transition: opacity 0.3s ease;
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            max-width: 90%;
         }
 
         .notification.show {
             opacity: 1;
         }
 
-        .progress-bar {
-            width: 100%;
-            height: 6px;
-            background: #e9ecef;
-            border-radius: 3px;
-            margin: 15px 0;
-            overflow: hidden;
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
         }
 
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #ffd700 0%, #ffed4a 100%);
-            border-radius: 3px;
-            transition: width 0.3s ease;
+        .deposit-info {
+            background: #fff9db;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+            border: 2px solid #ffd700;
+        }
+
+        .wallet-address {
+            background: white;
+            border: 2px solid #ffd700;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 14px;
+            word-break: break-all;
+            margin: 10px 0;
+            text-align: center;
         }
     </style>
 </head>
@@ -235,87 +323,443 @@
 
     <div class="container">
         <div class="header">
-            <h1>⚙️ Майнинг</h1>
-            <p>Автоматическое начисление каждые 8 часов<br>Всё работает внутри мини-приложения</p>
+            <h1 id="headerTitle">⛏️ TonEarn</h1>
+            <p id="headerSubtitle">Майнинг TON каждые 8 часов</p>
         </div>
 
-        <div class="mining-content">
-            <div class="balance-card">
-                <div class="balance-label">Текущий баланс</div>
-                <div class="balance-amount" id="balance">1,250.50</div>
-                <div class="balance-currency">RUB</div>
-            </div>
-
-            <div class="mining-stats">
-                <div class="stat-card">
-                    <div class="stat-value" id="dailyIncome">25.30</div>
-                    <div class="stat-label">Доход за день</div>
+        <div class="content">
+            <!-- Главная -->
+            <div class="section active" id="main-section">
+                <div class="loading" id="main-loading">
+                    ⏳ Загрузка данных...
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="totalMined">1,250.50</div>
-                    <div class="stat-label">Всего добыто</div>
+                <div id="main-content" style="display: none;">
+                    <div class="balance-card">
+                        <div class="balance-label">Общий баланс</div>
+                        <div class="balance-amount" id="balance">0.000000</div>
+                        <div class="balance-currency">TON</div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="total-deposits">0.000000</div>
+                            <div class="stat-label">Депозиты</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="total-mined">0.000000</div>
+                            <div class="stat-label">Накопано</div>
+                        </div>
+                    </div>
+
+                    <div class="info-card">
+                        <div class="stat-label">💎 Майнинг TON</div>
+                        <div class="stat-value" style="font-size: 14px; font-weight: normal;">
+                            Получайте 1.12%-1.68% от депозита каждые 8 часов
+                        </div>
+                    </div>
+
+                    <button class="action-btn" onclick="showSection('mining')">
+                        ⚙️ Управление майнингом
+                    </button>
+
+                    <button class="action-btn" onclick="showSection('deposit')">
+                        💰 Пополнить баланс
+                    </button>
                 </div>
             </div>
 
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill" style="width: 65%"></div>
+            <!-- Майнинг -->
+            <div class="section" id="mining-section">
+                <div class="loading" id="mining-loading">
+                    ⏳ Загрузка данных майнинга...
+                </div>
+                <div id="mining-content" style="display: none;">
+                    <div class="balance-card">
+                        <div class="balance-label">Доступно к сбору</div>
+                        <div class="balance-amount" id="mining-balance">0.000000</div>
+                        <div class="balance-currency">TON</div>
+                    </div>
+
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                    </div>
+
+                    <div class="timer-container">
+                        <div class="timer-label" id="timer-label">Следующий майнинг через</div>
+                        <div class="timer" id="timer">08:00:00</div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="mining-percentage">0.00%</div>
+                            <div class="stat-label">Текущий %</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="mining-power">100%</div>
+                            <div class="stat-label">Мощность</div>
+                        </div>
+                    </div>
+
+                    <button class="action-btn" onclick="collectMining()" id="collect-btn">
+                        💰 Собрать награду
+                    </button>
+
+                    <button class="action-btn" onclick="startMining()" id="start-btn">
+                        ⚡ Начать майнинг
+                    </button>
+                </div>
             </div>
 
-            <button class="collect-btn" onclick="collectReward()">
-                💰 Собрать награду
-            </button>
+            <!-- Рефералы -->
+            <div class="section" id="referrals-section">
+                <div class="loading" id="referrals-loading">
+                    ⏳ Загрузка реферальных данных...
+                </div>
+                <div id="referrals-content" style="display: none;">
+                    <div class="balance-card">
+                        <div class="balance-label">Реферальный доход</div>
+                        <div class="balance-amount" id="referral-balance">0.000000</div>
+                        <div class="balance-currency">TON</div>
+                    </div>
 
-            <div class="timer-container">
-                <div class="timer-label">Следующее начисление через</div>
-                <div class="timer" id="timer">07:59:45</div>
+                    <div class="info-card">
+                        <div class="stat-label">👥 Ваша реферальная ссылка</div>
+                        <div class="referral-code" id="referral-code">Загрузка...</div>
+                        <button class="action-btn" onclick="copyReferralCode()">
+                            📋 Скопировать ссылку
+                        </button>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="referral-count">0</div>
+                            <div class="stat-label">Приглашено</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="referral-bonus">0.2 TON</div>
+                            <div class="stat-label">Ваш бонус</div>
+                        </div>
+                    </div>
+
+                    <div class="info-card">
+                        <div class="stat-label">🎁 Как работает реферальная система?</div>
+                        <div class="stat-value" style="font-size: 14px; font-weight: normal;">
+                            • Вам за реферала: 0.2 TON<br>
+                            • Рефералу: 0.1 TON
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Профиль -->
+            <div class="section" id="profile-section">
+                <div class="loading" id="profile-loading">
+                    ⏳ Загрузка профиля...
+                </div>
+                <div id="profile-content" style="display: none;">
+                    <div class="balance-card">
+                        <div class="balance-label">Ваш профиль</div>
+                        <div class="balance-amount" id="profile-id">USER_000</div>
+                        <div class="balance-currency">Начальный уровень</div>
+                    </div>
+
+                    <div class="info-card">
+                        <div class="profile-info">
+                            <div class="profile-label">ID пользователя</div>
+                            <div class="profile-value" id="user-id">000000</div>
+                        </div>
+                        <div class="profile-info">
+                            <div class="profile-label">Статус майнинга</div>
+                            <div class="profile-value" style="color: #f59f00;" id="mining-status">Активен</div>
+                        </div>
+                        <div class="profile-info">
+                            <div class="profile-label">Дата регистрации</div>
+                            <div class="profile-value" id="reg-date">Сегодня</div>
+                        </div>
+                    </div>
+
+                    <button class="action-btn" onclick="showSection('deposit')">
+                        💰 Пополнить баланс
+                    </button>
+
+                    <button class="action-btn" onclick="showWithdraw()">
+                        💸 Вывести средства
+                    </button>
+                </div>
+            </div>
+
+            <!-- Пополнение -->
+            <div class="section" id="deposit-section">
+                <div class="deposit-info">
+                    <div class="balance-label">💰 Пополнение баланса</div>
+                    <div class="stat-value" style="font-size: 14px; font-weight: normal; margin: 15px 0;">
+                        Для пополнения баланса отправьте TON на адрес:
+                    </div>
+                    
+                    <div class="wallet-address" id="deposit-wallet">
+                        UQCH1F3tgQ8yyqYHxZyFBw6_Y3tfYu91KP5ko16mM7CPaWY5
+                    </div>
+
+                    <div class="profile-info">
+                        <div class="profile-label">ВАЖНО: В комментарии укажите ваш ID</div>
+                        <div class="profile-value" id="deposit-user-id">000000</div>
+                    </div>
+
+                    <div class="profile-info">
+                        <div class="profile-label">Минимальный депозит</div>
+                        <div class="profile-value">0.1 TON</div>
+                    </div>
+                </div>
+
+                <button class="action-btn" onclick="copyWalletAddress()">
+                    📋 Скопировать адрес
+                </button>
+
+                <button class="action-btn" onclick="showSection('main')">
+                    ← Назад
+                </button>
             </div>
         </div>
 
+        <!-- Навигация -->
         <div class="nav">
-            <div class="nav-item" onclick="showSection('main')">🏠 Главная</div>
-            <div class="nav-item active" onclick="showSection('mining')">⚙️ Майнинг</div>
-            <div class="nav-item" onclick="showSection('referrals')">👥 Рефералы</div>
-            <div class="nav-item" onclick="showSection('profile')">👤 Профиль</div>
-        </div>
-
-        <div class="info-text">
-            💫 Все операции выполняются внутри мини-приложения<br>
-            ⏰ Начисления каждые 8 часов • 🔒 Без скрытых действий
+            <div class="nav-item active" onclick="showSection('main')">
+                <div class="nav-icon">🏠</div>
+                <div>Главная</div>
+            </div>
+            <div class="nav-item" onclick="showSection('mining')">
+                <div class="nav-icon">⚙️</div>
+                <div>Майнинг</div>
+            </div>
+            <div class="nav-item" onclick="showSection('referrals')">
+                <div class="nav-icon">👥</div>
+                <div>Рефералы</div>
+            </div>
+            <div class="nav-item" onclick="showSection('profile')">
+                <div class="nav-icon">👤</div>
+                <div>Профиль</div>
+            </div>
         </div>
     </div>
 
     <script>
-        let balance = 1250.50;
-        let reward = 42.75;
-        let timeLeft = 8 * 60 * 60; // 8 часов в секундах
+        // Telegram Web App инициализация
+        let tg = window.Telegram.WebApp;
+        let userData = null;
 
-        function collectReward() {
-            if (reward > 0) {
-                balance += reward;
-                showNotification(`🎉 Награда собрана! +${reward.toFixed(2)} RUB`);
-                reward = 0;
-                updateDisplay();
-                
-                // Обновляем прогресс-бар
-                document.getElementById('progressFill').style.width = '0%';
-            } else {
-                showNotification('⏳ Награда еще не готова к сбору');
+        // Инициализация приложения
+        tg.expand();
+        tg.enableClosingConfirmation();
+        tg.BackButton.hide();
+
+        // Основные функции для работы с ботом
+        async function sendDataToBot(action, data = {}) {
+            try {
+                const response = await fetch('/webapp/' + action, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: tg.initDataUnsafe.user?.id,
+                        ...data
+                    })
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('Ошибка связи с ботом:', error);
+                showNotification('❌ Ошибка связи с сервером');
+                return null;
             }
         }
 
+        async function loadUserData() {
+            const data = await sendDataToBot('get_user_data');
+            if (data) {
+                userData = data;
+                updateUI();
+            }
+        }
+
+        async function loadMiningData() {
+            const data = await sendDataToBot('get_mining_data');
+            if (data) {
+                updateMiningUI(data);
+            }
+        }
+
+        async function loadReferralsData() {
+            const data = await sendDataToBot('get_referrals_data');
+            if (data) {
+                updateReferralsUI(data);
+            }
+        }
+
+        function updateUI() {
+            if (!userData) return;
+
+            // Обновляем главную страницу
+            document.getElementById('balance').textContent = userData.balance.toFixed(6);
+            document.getElementById('total-deposits').textContent = userData.total_deposits.toFixed(6);
+            document.getElementById('total-mined').textContent = userData.total_mined.toFixed(6);
+            
+            // Обновляем профиль
+            document.getElementById('profile-id').textContent = `USER_${userData.user_id}`;
+            document.getElementById('user-id').textContent = userData.user_id;
+            document.getElementById('deposit-user-id').textContent = userData.user_id;
+            document.getElementById('reg-date').textContent = userData.registered || 'Сегодня';
+            document.getElementById('mining-status').textContent = userData.mining_started ? 'Активен' : 'Не активен';
+
+            // Скрываем загрузку
+            document.getElementById('main-loading').style.display = 'none';
+            document.getElementById('main-content').style.display = 'block';
+        }
+
+        function updateMiningUI(data) {
+            document.getElementById('mining-balance').textContent = data.pending_mining.toFixed(6);
+            document.getElementById('mining-percentage').textContent = (data.mining_percentage * 100).toFixed(2) + '%';
+            
+            // Обновляем таймер и прогресс
+            updateMiningTimer(data.mining_started);
+            
+            // Обновляем кнопки
+            document.getElementById('collect-btn').disabled = !data.can_collect;
+            document.getElementById('start-btn').disabled = data.mining_started !== null;
+
+            document.getElementById('mining-loading').style.display = 'none';
+            document.getElementById('mining-content').style.display = 'block';
+        }
+
+        function updateReferralsUI(data) {
+            document.getElementById('referral-balance').textContent = data.referral_balance.toFixed(6);
+            document.getElementById('referral-code').textContent = data.referral_link;
+            document.getElementById('referral-count').textContent = data.referrals_count;
+
+            document.getElementById('referrals-loading').style.display = 'none';
+            document.getElementById('referrals-content').style.display = 'block';
+        }
+
+        function updateMiningTimer(miningStarted) {
+            if (!miningStarted) {
+                document.getElementById('timer').textContent = '08:00:00';
+                document.getElementById('progressFill').style.width = '0%';
+                document.getElementById('timer-label').textContent = 'Майнинг не активен';
+                return;
+            }
+
+            const startTime = new Date(miningStarted).getTime();
+            const now = Date.now();
+            const eightHours = 8 * 60 * 60 * 1000;
+            const timePassed = now - startTime;
+            const timeLeft = eightHours - timePassed;
+
+            if (timeLeft <= 0) {
+                document.getElementById('timer').textContent = '00:00:00';
+                document.getElementById('progressFill').style.width = '100%';
+                document.getElementById('timer-label').textContent = 'Можно собирать награду!';
+            } else {
+                const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+                
+                document.getElementById('timer').textContent = 
+                    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                const progress = (timePassed / eightHours) * 100;
+                document.getElementById('progressFill').style.width = Math.min(progress, 100) + '%';
+                document.getElementById('timer-label').textContent = 'Следующий майнинг через';
+            }
+        }
+
+        // Функции взаимодействия
+        async function collectMining() {
+            const result = await sendDataToBot('collect_mining');
+            if (result && result.success) {
+                showNotification('✅ Награда собрана!');
+                loadUserData();
+                loadMiningData();
+            }
+        }
+
+        async function startMining() {
+            const result = await sendDataToBot('start_mining');
+            if (result && result.success) {
+                showNotification('⚡ Майнинг запущен!');
+                loadMiningData();
+            }
+        }
+
+        function copyReferralCode() {
+            const code = document.getElementById('referral-code').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                showNotification('📋 Реферальная ссылка скопирована!');
+            });
+        }
+
+        function copyWalletAddress() {
+            const address = document.getElementById('deposit-wallet').textContent;
+            navigator.clipboard.writeText(address).then(() => {
+                showNotification('📋 Адрес кошелька скопирован!');
+            });
+        }
+
+        function showWithdraw() {
+            tg.showPopup({
+                title: '💸 Вывод средств',
+                message: 'Для вывода средств используйте команду /withdraw в основном чате с ботом',
+                buttons: [{ type: 'ok' }]
+            });
+        }
+
+        // Навигация
         function showSection(section) {
+            // Скрываем все разделы
+            document.querySelectorAll('.section').forEach(sec => {
+                sec.classList.remove('active');
+            });
+            
+            // Убираем активный класс у всех кнопок
             document.querySelectorAll('.nav-item').forEach(item => {
                 item.classList.remove('active');
             });
-            event.target.classList.add('active');
             
-            const sections = {
-                'main': '🏠 Переход в раздел Главная',
-                'mining': '⚙️ Майнинг активен',
-                'referrals': '👥 Реферальная программа',
-                'profile': '👤 Ваш профиль'
+            // Показываем выбранный раздел
+            document.getElementById(section + '-section').classList.add('active');
+            
+            // Делаем активной выбранную кнопку (кроме специальных разделов)
+            if (['main', 'mining', 'referrals', 'profile'].includes(section)) {
+                document.querySelector(`.nav-item:nth-child(${['main', 'mining', 'referrals', 'profile'].indexOf(section) + 1})`).classList.add('active');
+            }
+            
+            // Обновляем заголовок
+            const titles = {
+                'main': '⛏️ TonEarn',
+                'mining': '⚙️ Майнинг',
+                'referrals': '👥 Рефералы',
+                'profile': '👤 Профиль',
+                'deposit': '💰 Пополнение'
             };
-            showNotification(sections[section]);
+            
+            const subtitles = {
+                'main': 'Майнинг TON каждые 8 часов',
+                'mining': 'Управление майнингом',
+                'referrals': 'Реферальная программа',
+                'profile': 'Ваш профиль',
+                'deposit': 'Пополнение баланса'
+            };
+            
+            document.getElementById('headerTitle').textContent = titles[section];
+            document.getElementById('headerSubtitle').textContent = subtitles[section];
+            
+            // Загружаем данные для раздела
+            if (section === 'mining') {
+                loadMiningData();
+            } else if (section === 'referrals') {
+                loadReferralsData();
+            } else if (section === 'profile') {
+                document.getElementById('profile-loading').style.display = 'none';
+                document.getElementById('profile-content').style.display = 'block';
+            }
         }
 
         function showNotification(message) {
@@ -328,43 +772,20 @@
             }, 3000);
         }
 
-        function updateDisplay() {
-            document.getElementById('balance').textContent = balance.toFixed(2).replace('.', ',');
-            document.getElementById('dailyIncome').textContent = '25.30';
-            document.getElementById('totalMined').textContent = balance.toFixed(2).replace('.', ',');
-        }
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUserData();
+            
+            // Обновляем таймер каждую секунду
+            setInterval(() => {
+                if (userData && userData.mining_started) {
+                    updateMiningTimer(userData.mining_started);
+                }
+            }, 1000);
+        });
 
-        function updateTimer() {
-            const hours = Math.floor(timeLeft / 3600);
-            const minutes = Math.floor((timeLeft % 3600) / 60);
-            const seconds = timeLeft % 60;
-            
-            document.getElementById('timer').textContent = 
-                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            
-            // Обновляем прогресс-бар
-            const progress = 100 - (timeLeft / (8 * 60 * 60)) * 100;
-            document.getElementById('progressFill').style.width = progress + '%';
-            
-            if (timeLeft > 0) {
-                timeLeft--;
-            } else {
-                // Автоматическое начисление
-                timeLeft = 8 * 60 * 60;
-                reward = 42.75;
-                showNotification('🎊 Автоматическое начисление! Доступно 42.75 RUB');
-                document.getElementById('progressFill').style.width = '100%';
-            }
-        }
-
-        // Запускаем таймер
-        setInterval(updateTimer, 1000);
-        updateDisplay();
-        
-        // Показываем приветственное сообщение
-        setTimeout(() => {
-            showNotification('✨ Добро пожаловать! Майнинг запущен');
-        }, 1000);
+        // Обработка данных от Telegram
+        tg.ready();
     </script>
 </body>
 </html>
