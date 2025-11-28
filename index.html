@@ -465,6 +465,7 @@
             total_mined: 0.750500,
             user_id: 5855368265,
             username: "Гость",
+            display_name: "Гость",
             mining_started: true,
             mining_percentage: 1.45,
             pending_mining: 0.042750,
@@ -482,12 +483,15 @@
                 // Получаем реальный ник пользователя
                 if (telegramUser.username) {
                     userData.username = "@" + telegramUser.username;
+                    userData.display_name = "@" + telegramUser.username;
                 } else if (telegramUser.first_name) {
-                    userData.username = telegramUser.first_name;
+                    userData.display_name = telegramUser.first_name;
                     if (telegramUser.last_name) {
-                        userData.username += " " + telegramUser.last_name;
+                        userData.display_name += " " + telegramUser.last_name;
                     }
+                    userData.username = userData.display_name;
                 } else {
+                    userData.display_name = "Пользователь";
                     userData.username = "Пользователь";
                 }
                 
@@ -560,8 +564,8 @@
             document.getElementById('referral-balance').textContent = userData.referral_balance.toFixed(6);
             document.getElementById('referral-count').textContent = userData.referrals_count;
             
-            // Обновляем профиль - теперь отображаем никнейм вместо ID
-            document.getElementById('profile-username').textContent = userData.username;
+            // Обновляем профиль - отображаем имя пользователя
+            document.getElementById('profile-username').textContent = userData.display_name;
             document.getElementById('user-username').textContent = userData.username;
             document.getElementById('deposit-user-id').textContent = userData.user_id;
             document.getElementById('mining-status').textContent = userData.mining_started ? 'Активен ✓' : 'Не активен';
