@@ -143,6 +143,13 @@
             transform: translateY(0);
         }
 
+        .action-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
         .timer-container {
             background: #333;
             color: white;
@@ -258,6 +265,13 @@
 
         .notification.show {
             opacity: 1;
+        }
+
+        .warning-text {
+            color: #e74c3c;
+            font-size: 12px;
+            margin-top: 5px;
+            font-weight: 600;
         }
     </style>
 </head>
@@ -393,6 +407,9 @@
                     
                     <div class="stat-label">Статус майнинга</div>
                     <div class="stat-value" style="color: #f59f00;" id="mining-status">Не активен</div>
+                    
+                    <div class="stat-label">Ваш ID</div>
+                    <div class="stat-value" id="profile-user-id">Загрузка...</div>
                 </div>
 
                 <button class="action-btn" onclick="showSection('deposit')">
@@ -418,8 +435,9 @@
 
                     <div class="stat-label">ВАЖНО: В комментарии укажите ваш ID</div>
                     <div class="stat-value" id="deposit-user-id">Загрузка...</div>
+                    <div class="warning-text">Без указания ID средства не будут зачислены!</div>
 
-                    <div class="stat-label">Минимальный депозит</div>
+                    <div class="stat-label" style="margin-top: 15px;">Минимальный депозит</div>
                     <div class="stat-value">0.1 TON</div>
                 </div>
 
@@ -455,7 +473,7 @@
     </div>
 
     <script>
-        // Данные пользователя - Web App САМ их получит
+        // Данные пользователя
         let userData = {
             balance: 0,
             total_deposits: 0,
@@ -469,20 +487,28 @@
             referral_balance: 0
         };
 
-        let timeLeft = 8 * 3600; // 8 часов
+        let timeLeft = 8 * 3600; // 8 часов в секундах
+        let timerInterval = null;
+        let isMiningCompleted = false;
 
-        // Web App САМ получает данные пользователя
+        // Инициализация пользователя Telegram
         function initTelegramUser() {
             if (window.Telegram && Telegram.WebApp) {
                 const tg = Telegram.WebApp;
                 tg.ready();
                 tg.expand();
                 
-                // ВОТ ГДЕ Web App НАХОДИТ ДАННЫЕ ПОЛЬЗОВАТЕЛЯ
+                // Показываем кнопку "Назад" для закрытия приложения
+                tg.BackButton.show();
+                tg.BackButton.onClick(() => {
+                    tg.close();
+                });
+                
+                // Получаем данные пользователя
                 const user = tg.initDataUnsafe.user;
                 
                 if (user) {
-                    // Web App автоматически находит ник пользователя
+                    // Формируем никнейм
                     if (user.username) {
                         userData.nickname = "@" + user.username;
                     } else if (user.first_name) {
@@ -493,19 +519,51 @@
                     }
                     userData.user_id = user.id;
                     
-                    // Генерируем реферальную ссылку на основе ID пользователя
+                    // Генерируем реферальную ссылку
                     document.getElementById('referral-code').textContent = 
                         `https://t.me/tonearnro_bot?start=ref${user.id}`;
+                } else {
+                    // Если данные пользователя недоступны
+                    userData.user_id = generateUserId();
+                    userData.nickname = "Пользователь";
+                    document.getElementById('referral-code').textContent = 
+                        `https://t.me/tonearnro_bot?start=ref${userData.user_id}`;
                 }
+            } else {
+                // Режим отладки вне Telegram
+                userData.user_id = generateUserId();
+                userData.nickname = "Тестовый пользователь";
+                document.getElementById('referral-code').textContent = 
+                    `https://t.me/tonearnro_bot?start=ref${userData.user_id}`;
             }
+            
             updateUI();
         }
 
+        // Генерация ID пользователя
+        function generateUserId() {
+            return Math.floor(100000 + Math.random() * 900000);
+        }
+
+        // Сбор награды за майнинг
         function collectMining() {
+            if (userData.pending_mining <= 0) {
+                showNotification('❌ Нет доступной награды для сбора');
+                return;
+            }
+            
             userData.balance += userData.pending_mining;
             userData.total_mined += userData.pending_mining;
             userData.pending_mining = 0;
             userData.mining_started = false;
+            isMiningCompleted = false;
+            timeLeft = 8 * 3600;
+            
+            // Останавливаем таймер
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
             
             updateUI();
             showNotification('✅ Награда собрана!');
@@ -514,11 +572,23 @@
             document.getElementById('collect-btn').style.display = 'none';
         }
 
+        // Запуск майнинга
         function startMining() {
+            if (userData.mining_started) {
+                showNotification('❌ Майнинг уже запущен!');
+                return;
+            }
+            
             userData.pending_mining = 0.005000;
             userData.mining_percentage = (Math.random() * (1.68 - 1.12) + 1.12).toFixed(2);
             userData.mining_started = true;
+            isMiningCompleted = false;
             timeLeft = 8 * 3600;
+            
+            // Запускаем таймер, если он еще не запущен
+            if (!timerInterval) {
+                timerInterval = setInterval(updateTimer, 1000);
+            }
             
             updateUI();
             showNotification('⚡ Майнинг запущен!');
@@ -527,48 +597,80 @@
             document.getElementById('collect-btn').style.display = 'block';
         }
 
+        // Копирование реферальной ссылки
         function copyReferralCode() {
             const code = document.getElementById('referral-code').textContent;
             navigator.clipboard.writeText(code).then(() => {
                 showNotification('📋 Реферальная ссылка скопирована!');
+            }).catch(err => {
+                // Fallback для старых браузеров
+                const textArea = document.createElement('textarea');
+                textArea.value = code;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showNotification('📋 Реферальная ссылка скопирована!');
             });
         }
 
+        // Копирование адреса кошелька
         function copyWalletAddress() {
             const address = document.getElementById('deposit-wallet').textContent;
             navigator.clipboard.writeText(address).then(() => {
                 showNotification('📋 Адрес кошелька скопирован!');
+            }).catch(err => {
+                // Fallback для старых браузеров
+                const textArea = document.createElement('textarea');
+                textArea.value = address;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showNotification('📋 Адрес кошелька скопирован!');
             });
         }
 
+        // Показать информацию о выводе
         function showWithdraw() {
             showNotification('💸 Для вывода средств используйте команду /withdraw в боте');
         }
 
+        // Обновление интерфейса
         function updateUI() {
+            // Обновление балансов
             document.getElementById('balance').textContent = userData.balance.toFixed(6);
             document.getElementById('total-deposits').textContent = userData.total_deposits.toFixed(6);
             document.getElementById('total-mined').textContent = userData.total_mined.toFixed(6);
             
+            // Обновление раздела майнинга
             document.getElementById('mining-balance').textContent = userData.pending_mining.toFixed(6);
             document.getElementById('mining-percentage').textContent = userData.mining_percentage + '%';
             document.getElementById('mining-power').textContent = userData.mining_started ? '100%' : '0%';
             
+            // Обновление раздела рефералов
             document.getElementById('referral-balance').textContent = userData.referral_balance.toFixed(6);
             document.getElementById('referral-count').textContent = userData.referrals_count;
             
-            // Web App САМ нашел данные пользователя и мы их отображаем
+            // Обновление профиля
             document.getElementById('profile-nickname').textContent = userData.nickname;
             document.getElementById('user-nickname').textContent = userData.nickname;
-            document.getElementById('deposit-user-id').textContent = userData.user_id || "Загрузка...";
+            document.getElementById('profile-user-id').textContent = userData.user_id || "Не определен";
+            document.getElementById('deposit-user-id').textContent = userData.user_id || "Не определен";
             document.getElementById('mining-status').textContent = userData.mining_started ? 'Активен ✓' : 'Не активен';
             
+            // Обновление прогресса майнинга
             const progress = userData.mining_started ? (100 - (timeLeft / (8 * 3600)) * 100) : 0;
             document.getElementById('progressFill').style.width = Math.min(progress, 100) + '%';
         }
 
+        // Обновление таймера
         function updateTimer() {
             if (timeLeft <= 0 || !userData.mining_started) {
+                if (timeLeft <= 0 && userData.mining_started && !isMiningCompleted) {
+                    isMiningCompleted = true;
+                    showNotification('✅ Майнинг завершен! Соберите награду.');
+                }
                 document.getElementById('timer').textContent = '08:00:00';
                 return;
             }
@@ -583,22 +685,28 @@
             timeLeft--;
         }
 
+        // Переключение между разделами
         function showSection(section) {
+            // Скрываем все разделы
             document.querySelectorAll('.section').forEach(sec => {
                 sec.classList.remove('active');
             });
             
+            // Убираем активный класс у всех пунктов навигации
             document.querySelectorAll('.nav-item').forEach(item => {
                 item.classList.remove('active');
             });
             
+            // Показываем выбранный раздел
             document.getElementById(section + '-section').classList.add('active');
             
+            // Активируем соответствующий пункт навигации
             if (['main', 'mining', 'referrals', 'profile'].includes(section)) {
                 const navIndex = ['main', 'mining', 'referrals', 'profile'].indexOf(section);
                 document.querySelectorAll('.nav-item')[navIndex].classList.add('active');
             }
             
+            // Обновляем заголовки
             const titles = {
                 'main': '⛏️ TonEarn',
                 'mining': '⚙️ Майнинг',
@@ -619,6 +727,7 @@
             document.getElementById('headerSubtitle').textContent = subtitles[section];
         }
 
+        // Показать уведомление
         function showNotification(message) {
             const notification = document.getElementById('notification');
             notification.textContent = message;
@@ -629,9 +738,14 @@
             }, 3000);
         }
 
+        // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', function() {
-            initTelegramUser(); // Web App САМ найдет данные пользователя
-            setInterval(updateTimer, 1000);
+            initTelegramUser();
+            
+            // Запускаем таймер
+            timerInterval = setInterval(updateTimer, 1000);
+            
+            // Приветственное сообщение
             setTimeout(() => {
                 showNotification('✨ Добро пожаловать в TonEarn!');
             }, 1000);
