@@ -275,17 +275,17 @@
             <div class="section active" id="main-section">
                 <div class="balance-card">
                     <div class="balance-label">Общий баланс</div>
-                    <div class="balance-amount" id="balance">1.250500</div>
+                    <div class="balance-amount" id="balance">0.000000</div>
                     <div class="balance-currency">TON</div>
                 </div>
 
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-value" id="total-deposits">0.500000</div>
+                        <div class="stat-value" id="total-deposits">0.000000</div>
                         <div class="stat-label">Депозиты</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value" id="total-mined">0.750500</div>
+                        <div class="stat-value" id="total-mined">0.000000</div>
                         <div class="stat-label">Накопано</div>
                     </div>
                 </div>
@@ -310,35 +310,35 @@
             <div class="section" id="mining-section">
                 <div class="balance-card">
                     <div class="balance-label">Доступно к сбору</div>
-                    <div class="balance-amount" id="mining-balance">0.042750</div>
+                    <div class="balance-amount" id="mining-balance">0.000000</div>
                     <div class="balance-currency">TON</div>
                 </div>
 
                 <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill" style="width: 65%"></div>
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
                 </div>
 
                 <div class="timer-container">
                     <div class="timer-label">Следующий майнинг через</div>
-                    <div class="timer" id="timer">02:45:30</div>
+                    <div class="timer" id="timer">08:00:00</div>
                 </div>
 
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-value" id="mining-percentage">1.45%</div>
+                        <div class="stat-value" id="mining-percentage">0%</div>
                         <div class="stat-label">Текущий %</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value" id="mining-power">100%</div>
+                        <div class="stat-value" id="mining-power">0%</div>
                         <div class="stat-label">Мощность</div>
                     </div>
                 </div>
 
-                <button class="action-btn" onclick="collectMining()" id="collect-btn">
+                <button class="action-btn" onclick="collectMining()" id="collect-btn" style="display: none;">
                     💰 Собрать награду
                 </button>
 
-                <button class="action-btn" onclick="startMining()" id="start-btn" style="display: none;">
+                <button class="action-btn" onclick="startMining()" id="start-btn">
                     ⚡ Начать майнинг
                 </button>
             </div>
@@ -347,13 +347,13 @@
             <div class="section" id="referrals-section">
                 <div class="balance-card">
                     <div class="balance-label">Реферальный доход</div>
-                    <div class="balance-amount" id="referral-balance">0.315200</div>
+                    <div class="balance-amount" id="referral-balance">0.000000</div>
                     <div class="balance-currency">TON</div>
                 </div>
 
                 <div class="info-card">
                     <div class="stat-label">👥 Ваша реферальная ссылка</div>
-                    <div class="referral-code" id="referral-code">https://t.me/tonearnro_bot?start=ref55821</div>
+                    <div class="referral-code" id="referral-code">Загрузка...</div>
                     <button class="action-btn" onclick="copyReferralCode()">
                         📋 Скопировать ссылку
                     </button>
@@ -361,7 +361,7 @@
 
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-value" id="referral-count">8</div>
+                        <div class="stat-value" id="referral-count">0</div>
                         <div class="stat-label">Приглашено</div>
                     </div>
                     <div class="stat-card">
@@ -392,7 +392,7 @@
                     <div class="stat-value" id="user-nickname">Загрузка...</div>
                     
                     <div class="stat-label">Статус майнинга</div>
-                    <div class="stat-value" style="color: #f59f00;" id="mining-status">Активен ✓</div>
+                    <div class="stat-value" style="color: #f59f00;" id="mining-status">Не активен</div>
                 </div>
 
                 <button class="action-btn" onclick="showSection('deposit')">
@@ -417,7 +417,7 @@
                     </div>
 
                     <div class="stat-label">ВАЖНО: В комментарии укажите ваш ID</div>
-                    <div class="stat-value" id="deposit-user-id">5855368265</div>
+                    <div class="stat-value" id="deposit-user-id">Загрузка...</div>
 
                     <div class="stat-label">Минимальный депозит</div>
                     <div class="stat-value">0.1 TON</div>
@@ -455,32 +455,34 @@
     </div>
 
     <script>
-        // Данные пользователя
+        // Данные пользователя - Web App САМ их получит
         let userData = {
-            balance: 1.250500,
-            total_deposits: 0.500000,
-            total_mined: 0.750500,
-            user_id: 5855368265,
+            balance: 0,
+            total_deposits: 0,
+            total_mined: 0,
+            user_id: null,
             nickname: "Гость",
-            mining_started: true,
-            mining_percentage: 1.45,
-            pending_mining: 0.042750,
-            referrals_count: 8,
-            referral_balance: 0.315200
+            mining_started: false,
+            mining_percentage: 0,
+            pending_mining: 0,
+            referrals_count: 0,
+            referral_balance: 0
         };
 
-        let timeLeft = 2 * 3600 + 45 * 60 + 30;
+        let timeLeft = 8 * 3600; // 8 часов
 
-        // Получение данных пользователя из Telegram
+        // Web App САМ получает данные пользователя
         function initTelegramUser() {
             if (window.Telegram && Telegram.WebApp) {
                 const tg = Telegram.WebApp;
                 tg.ready();
                 tg.expand();
                 
-                const user = tg.initDataUnsafe?.user;
+                // ВОТ ГДЕ Web App НАХОДИТ ДАННЫЕ ПОЛЬЗОВАТЕЛЯ
+                const user = tg.initDataUnsafe.user;
+                
                 if (user) {
-                    // ПОЛУЧАЕМ РЕАЛЬНЫЙ НИК ПОЛЬЗОВАТЕЛЯ
+                    // Web App автоматически находит ник пользователя
                     if (user.username) {
                         userData.nickname = "@" + user.username;
                     } else if (user.first_name) {
@@ -490,33 +492,36 @@
                         }
                     }
                     userData.user_id = user.id;
+                    
+                    // Генерируем реферальную ссылку на основе ID пользователя
+                    document.getElementById('referral-code').textContent = 
+                        `https://t.me/tonearnro_bot?start=ref${user.id}`;
                 }
             }
             updateUI();
         }
 
-        // Функции взаимодействия
         function collectMining() {
             userData.balance += userData.pending_mining;
             userData.total_mined += userData.pending_mining;
             userData.pending_mining = 0;
+            userData.mining_started = false;
             
             updateUI();
-            showNotification('✅ Награда собрана! +0.042750 TON');
+            showNotification('✅ Награда собрана!');
             
             document.getElementById('start-btn').style.display = 'block';
             document.getElementById('collect-btn').style.display = 'none';
-            document.getElementById('mining-balance').textContent = '0.000000';
-            document.getElementById('progressFill').style.width = '0%';
         }
 
         function startMining() {
-            userData.pending_mining = 0.042750;
+            userData.pending_mining = 0.005000;
             userData.mining_percentage = (Math.random() * (1.68 - 1.12) + 1.12).toFixed(2);
+            userData.mining_started = true;
             timeLeft = 8 * 3600;
             
             updateUI();
-            showNotification('⚡ Майнинг запущен! Процент: ' + userData.mining_percentage + '%');
+            showNotification('⚡ Майнинг запущен!');
             
             document.getElementById('start-btn').style.display = 'none';
             document.getElementById('collect-btn').style.display = 'block';
@@ -547,21 +552,24 @@
             
             document.getElementById('mining-balance').textContent = userData.pending_mining.toFixed(6);
             document.getElementById('mining-percentage').textContent = userData.mining_percentage + '%';
+            document.getElementById('mining-power').textContent = userData.mining_started ? '100%' : '0%';
             
             document.getElementById('referral-balance').textContent = userData.referral_balance.toFixed(6);
             document.getElementById('referral-count').textContent = userData.referrals_count;
             
-            // ОТОБРАЖАЕМ РЕАЛЬНЫЙ НИК ПОЛЬЗОВАТЕЛЯ
+            // Web App САМ нашел данные пользователя и мы их отображаем
             document.getElementById('profile-nickname').textContent = userData.nickname;
             document.getElementById('user-nickname').textContent = userData.nickname;
-            document.getElementById('deposit-user-id').textContent = userData.user_id;
+            document.getElementById('deposit-user-id').textContent = userData.user_id || "Загрузка...";
             document.getElementById('mining-status').textContent = userData.mining_started ? 'Активен ✓' : 'Не активен';
+            
+            const progress = userData.mining_started ? (100 - (timeLeft / (8 * 3600)) * 100) : 0;
+            document.getElementById('progressFill').style.width = Math.min(progress, 100) + '%';
         }
 
         function updateTimer() {
-            if (timeLeft <= 0) {
-                document.getElementById('timer').textContent = '00:00:00';
-                document.getElementById('progressFill').style.width = '100%';
+            if (timeLeft <= 0 || !userData.mining_started) {
+                document.getElementById('timer').textContent = '08:00:00';
                 return;
             }
 
@@ -571,9 +579,6 @@
             
             document.getElementById('timer').textContent = 
                 `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            
-            const progress = 100 - (timeLeft / (8 * 3600)) * 100;
-            document.getElementById('progressFill').style.width = Math.min(progress, 100) + '%';
             
             timeLeft--;
         }
@@ -624,9 +629,8 @@
             }, 3000);
         }
 
-        // Инициализация
         document.addEventListener('DOMContentLoaded', function() {
-            initTelegramUser();
+            initTelegramUser(); // Web App САМ найдет данные пользователя
             setInterval(updateTimer, 1000);
             setTimeout(() => {
                 showNotification('✨ Добро пожаловать в TonEarn!');
