@@ -17,7 +17,7 @@
             color: #333;
             min-height: 100vh;
             padding: 20px;
-            padding-bottom: 80px; /* Место для нижнего меню */
+            padding-bottom: 80px;
         }
         
         .container {
@@ -154,7 +154,14 @@
         .mining-progress-bar {
             background: linear-gradient(90deg, #28a745, #20c997);
             height: 100%;
-            width: 65%;
+            transition: width 0.5s;
+        }
+        
+        .time-counter {
+            font-family: monospace;
+            font-size: 18px;
+            font-weight: bold;
+            color: #B8860B;
         }
     </style>
 </head>
@@ -166,7 +173,7 @@
                 <h1>🏆 TonEarn</h1>
                 <div class="user-info">
                     <p>👤 Ваш ID: <b id="user-id">...</b></p>
-                    <p>💰 Баланс: <b id="balance">1.500000 TON</b></p>
+                    <p>💰 Баланс: <b>1.500000 TON</b></p>
                 </div>
                 
                 <div class="stats">
@@ -188,7 +195,7 @@
                     </div>
                 </div>
                 
-                <button class="btn" onclick="showTab('mining')">🚀 Быстрый майнинг</button>
+                <button class="btn" onclick="sendToBot('start_mining')">🚀 Быстрый майнинг</button>
                 <button class="btn" onclick="showTab('deposit')">💰 Пополнить сейчас</button>
             </div>
         </div>
@@ -198,18 +205,18 @@
             <div class="card">
                 <h1>⛏️ Майнинг</h1>
                 <div class="user-info">
-                    <p>⏰ Следующая награда через: <b>7:32:15</b></p>
+                    <p>⏰ Следующая награда через: <b class="time-counter" id="mining-timer">07:32:15</b></p>
                     <p>💎 Текущий процент: <b>1.45%</b></p>
                     <p>💰 Ожидаемая награда: <b>0.02175 TON</b></p>
                 </div>
                 
                 <div class="mining-progress">
-                    <div class="mining-progress-bar"></div>
+                    <div class="mining-progress-bar" id="mining-progress-bar" style="width: 65%"></div>
                 </div>
-                <p>Прогресс: <b>65%</b></p>
+                <p>Прогресс: <b id="mining-progress-text">65%</b></p>
                 
-                <button class="btn" onclick="alert('Майнинг активирован!')">⚡ Активировать майнинг</button>
-                <button class="btn" onclick="alert('Бустер применен!')">🚀 Использовать бустер x2</button>
+                <button class="btn" onclick="sendToBot('activate_mining')">⚡ Активировать майнинг</button>
+                <button class="btn" onclick="sendToBot('use_booster')">🚀 Использовать бустер x2</button>
                 
                 <div class="stats">
                     <div class="stat-item">
@@ -235,8 +242,8 @@
                     <p>💰 Заработано: <b>0.6 TON</b></p>
                 </div>
                 
-                <button class="btn" onclick="copyReferralLink()">📋 Копировать ссылку</button>
-                <button class="btn" onclick="alert('Реферальная статистика')">📊 Статистика</button>
+                <button class="btn" onclick="sendToBot('copy_referral')">📋 Копировать ссылку</button>
+                <button class="btn" onclick="sendToBot('referral_stats')">📊 Статистика</button>
                 
                 <div class="user-info">
                     <p><strong>🎁 Бонусы:</strong></p>
@@ -268,12 +275,12 @@
                 </div>
                 
                 <button class="btn" onclick="showTab('deposit')">💳 Пополнить баланс</button>
-                <button class="btn" onclick="alert('Вывод средств')">💸 Вывести TON</button>
-                <button class="btn" onclick="alert('Настройки')">⚙️ Настройки</button>
+                <button class="btn" onclick="sendToBot('withdraw')">💸 Вывести TON</button>
+                <button class="btn" onclick="sendToBot('settings')">⚙️ Настройки</button>
             </div>
         </div>
         
-        <!-- Пополнение вкладка (скрытая) -->
+        <!-- Пополнение вкладка -->
         <div id="deposit-tab" class="tab-content">
             <div class="card">
                 <h1>💳 Пополнение</h1>
@@ -286,7 +293,8 @@
                     <p>Минимум: <b>0.1 TON</b></p>
                 </div>
                 
-                <button class="btn" onclick="copyWalletAddress()">📋 Копировать адрес</button>
+                <button class="btn" onclick="sendToBot('copy_wallet')">📋 Копировать адрес</button>
+                <button class="btn" onclick="sendToBot('deposit_info')">ℹ️ Инструкция</button>
                 <button class="btn" onclick="showTab('main')">← Назад</button>
             </div>
         </div>
@@ -317,6 +325,9 @@
         let tg = window.Telegram.WebApp;
         tg.expand();
         
+        // Убираем Main Button (премиум)
+        tg.MainButton.hide();
+        
         // Получаем данные пользователя
         const user = tg.initDataUnsafe.user;
         if (user) {
@@ -324,6 +335,31 @@
             document.getElementById('profile-user-id').textContent = user.id;
             document.getElementById('referral-link').textContent = 'https://t.me/tonearnro_bot?start=ref' + user.id;
         }
+        
+        // Таймер для майнинга
+        let miningTime = 7 * 3600 + 32 * 60 + 15; // 7 часов 32 минуты 15 секунд
+        let progress = 65;
+        
+        function updateMiningTimer() {
+            if (miningTime > 0) {
+                miningTime--;
+                
+                const hours = Math.floor(miningTime / 3600);
+                const minutes = Math.floor((miningTime % 3600) / 60);
+                const seconds = miningTime % 60;
+                
+                document.getElementById('mining-timer').textContent = 
+                    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                // Обновляем прогресс
+                progress = 100 - Math.floor((miningTime / (7 * 3600 + 32 * 60 + 15)) * 35);
+                document.getElementById('mining-progress-bar').style.width = progress + '%';
+                document.getElementById('mining-progress-text').textContent = progress + '%';
+            }
+        }
+        
+        // Запускаем таймер
+        setInterval(updateMiningTimer, 1000);
         
         // Функции для вкладок
         function showTab(tabName) {
@@ -346,29 +382,22 @@
             }
         }
         
-        function copyReferralLink() {
-            const link = document.getElementById('referral-link').textContent;
-            navigator.clipboard.writeText(link).then(() => {
-                alert('Ссылка скопирована!');
-            });
+        // Функция для отправки данных в бота
+        function sendToBot(action) {
+            const data = {
+                action: action,
+                user_id: user ? user.id : 'unknown',
+                timestamp: Date.now()
+            };
+            
+            // Отправляем данные в бота
+            tg.sendData(JSON.stringify(data));
+            
+            // Закрываем Mini App после отправки
+            setTimeout(() => {
+                tg.close();
+            }, 100);
         }
-        
-        function copyWalletAddress() {
-            const address = 'UQCH1F3tgQ8yyqYHxZyFBw6_Y3tfYu91KP5ko16mM7CPaWY5';
-            navigator.clipboard.writeText(address).then(() => {
-                alert('Адрес скопирован!');
-            });
-        }
-        
-        // Показываем Main Button
-        tg.MainButton.setText("💎 Премиум").show();
-        tg.MainButton.onClick(function() {
-            tg.showPopup({
-                title: '💎 Премиум доступ',
-                message: 'Откройте все возможности TonEarn!',
-                buttons: [{ type: 'ok' }]
-            });
-        });
     </script>
 </body>
 </html>
