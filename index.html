@@ -388,14 +388,11 @@
                 </div>
 
                 <div class="info-card">
-                    <div class="stat-label">Имя пользователя</div>
-                    <div class="stat-value" id="user-username">CryptoMiner</div>
+                    <div class="stat-label">Никнейм</div>
+                    <div class="stat-value" id="user-username">Загрузка...</div>
                     
                     <div class="stat-label">Статус майнинга</div>
                     <div class="stat-value" style="color: #f59f00;" id="mining-status">Активен ✓</div>
-                    
-                    <div class="stat-label">Дата регистрации</div>
-                    <div class="stat-value" id="reg-date">15.11.2023</div>
                 </div>
 
                 <button class="action-btn" onclick="showSection('deposit')">
@@ -458,22 +455,49 @@
     </div>
 
     <script>
-        // Данные пользователя (в реальном приложении будут приходить от бота)
+        // Telegram Web App интеграция для получения реальных данных пользователя
+        let tg = window.Telegram?.WebApp;
+        
+        // Данные пользователя (будут заполнены из Telegram)
         let userData = {
             balance: 1.250500,
             total_deposits: 0.500000,
             total_mined: 0.750500,
             user_id: 5855368265,
-            username: "CryptoMiner", // Обычное имя пользователя
+            username: "Гость",
             mining_started: true,
             mining_percentage: 1.45,
             pending_mining: 0.042750,
             referrals_count: 8,
-            referral_balance: 0.315200,
-            registered: '15.11.2023'
+            referral_balance: 0.315200
         };
 
         let timeLeft = 2 * 3600 + 45 * 60 + 30; // 2 часа 45 минут 30 секунд
+
+        // Получение реальных данных пользователя из Telegram
+        function initTelegramUser() {
+            if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                const telegramUser = tg.initDataUnsafe.user;
+                
+                // Получаем реальный ник пользователя
+                if (telegramUser.username) {
+                    userData.username = "@" + telegramUser.username;
+                } else if (telegramUser.first_name) {
+                    userData.username = telegramUser.first_name;
+                    if (telegramUser.last_name) {
+                        userData.username += " " + telegramUser.last_name;
+                    }
+                } else {
+                    userData.username = "Пользователь";
+                }
+                
+                // Обновляем ID пользователя
+                userData.user_id = telegramUser.id;
+                
+                // Обновляем интерфейс
+                updateUI();
+            }
+        }
 
         // Функции взаимодействия
         function collectMining() {
@@ -538,9 +562,8 @@
             
             // Обновляем профиль
             document.getElementById('profile-id').textContent = `USER_${userData.user_id}`;
-            document.getElementById('user-username').textContent = userData.username; // Отображаем ник пользователя
+            document.getElementById('user-username').textContent = userData.username;
             document.getElementById('deposit-user-id').textContent = userData.user_id;
-            document.getElementById('reg-date').textContent = userData.registered;
             document.getElementById('mining-status').textContent = userData.mining_started ? 'Активен ✓' : 'Не активен';
         }
 
@@ -619,6 +642,9 @@
 
         // Инициализация при загрузке
         document.addEventListener('DOMContentLoaded', function() {
+            // Инициализируем данные пользователя из Telegram
+            initTelegramUser();
+            
             updateUI();
             
             // Обновляем таймер каждую секунду
