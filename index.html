@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TonEarn - Майнинг TON</title>
     <style>
-        /* Все стили остаются прежними */
         * {
             margin: 0;
             padding: 0;
@@ -472,9 +471,8 @@
 
         let timeLeft = 2 * 3600 + 45 * 60 + 30;
 
-        // Получение данных пользователя
-        function initUserData() {
-            // Пробуем получить данные из Telegram
+        // Получение данных пользователя из Telegram
+        function initTelegramUser() {
             if (window.Telegram && Telegram.WebApp) {
                 const tg = Telegram.WebApp;
                 tg.ready();
@@ -482,6 +480,7 @@
                 
                 const user = tg.initDataUnsafe?.user;
                 if (user) {
+                    // ПОЛУЧАЕМ РЕАЛЬНЫЙ НИК ПОЛЬЗОВАТЕЛЯ
                     if (user.username) {
                         userData.nickname = "@" + user.username;
                     } else if (user.first_name) {
@@ -493,18 +492,10 @@
                     userData.user_id = user.id;
                 }
             }
-            
-            // ДЛЯ ТЕСТИРОВАНИЯ В БРАУЗЕРЕ - получаем ник из URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const testNickname = urlParams.get('nickname');
-            if (testNickname) {
-                userData.nickname = testNickname;
-            }
-            
             updateUI();
         }
 
-        // Остальные функции без изменений
+        // Функции взаимодействия
         function collectMining() {
             userData.balance += userData.pending_mining;
             userData.total_mined += userData.pending_mining;
@@ -560,7 +551,7 @@
             document.getElementById('referral-balance').textContent = userData.referral_balance.toFixed(6);
             document.getElementById('referral-count').textContent = userData.referrals_count;
             
-            // ОТОБРАЖАЕМ НИК ПОЛЬЗОВАТЕЛЯ
+            // ОТОБРАЖАЕМ РЕАЛЬНЫЙ НИК ПОЛЬЗОВАТЕЛЯ
             document.getElementById('profile-nickname').textContent = userData.nickname;
             document.getElementById('user-nickname').textContent = userData.nickname;
             document.getElementById('deposit-user-id').textContent = userData.user_id;
@@ -635,7 +626,7 @@
 
         // Инициализация
         document.addEventListener('DOMContentLoaded', function() {
-            initUserData();
+            initTelegramUser();
             setInterval(updateTimer, 1000);
             setTimeout(() => {
                 showNotification('✨ Добро пожаловать в TonEarn!');
