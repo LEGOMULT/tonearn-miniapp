@@ -1,35 +1,154 @@
-def main():
-    """Главная функция запуска бота"""
+# ДОБАВЬ ЭТО В НАЧАЛО ФАЙЛА, ПОСЛЕ ИМПОРТОВ
+from telegram.ext import MessageHandler, filters
+import json
+
+# ДОБАВЬ ЭТУ ФУНКЦИЮ В КОНЕЦ ФАЙЛА, ПЕРЕД main()
+async def handle_web_app_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработка данных из Mini App"""
     try:
-        print("🔄 Инициализация базы данных...")
-        init_db()
-        
-        print("🔄 Создание приложения...")
-        application = Application.builder().token(TOKEN).build()
-        
-        print("🔄 Добавление обработчиков...")
-        # Основные команды
-        application.add_handler(CommandHandler("start", start))
-        
-        # Админские команды
-        application.add_handler(CommandHandler("admin", admin_panel))
-        application.add_handler(CommandHandler("stats", admin_stats))
-        # ... остальные админские команды ...
-        
-        # Обработчики callback и сообщений
-        application.add_handler(CallbackQueryHandler(handle_callback))
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-        
-        # ★★★ ДОБАВЬ ЭТУ СТРОЧКУ ★★★
-        application.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_web_app_data))
-        
-        print("🤖 Бот TonEarn запускается...")
-        print("✅ Бот успешно запущен и работает...")
-        
-        application.run_polling()
-        
+        # Получаем данные от Mini App
+        web_app_data = update.message.web_app_data
+        if web_app_data:
+            data = json.loads(web_app_data.data)
+            action = data.get('action')
+            user_id = data.get('user_id')
+            
+            user = update.effective_user
+            
+            if action == 'start_mining':
+                await start_mining_from_webapp(update, context)
+            elif action == 'activate_mining':
+                await activate_mining(update, context)
+            elif action == 'use_booster':
+                await use_booster(update, context)
+            elif action == 'copy_referral':
+                await show_referrals(update)
+            elif action == 'referral_stats':
+                await referral_stats(update, context)
+            elif action == 'withdraw':
+                await check_withdraw_availability_webapp(update, context)
+            elif action == 'settings':
+                await show_settings(update, context)
+            elif action == 'copy_wallet':
+                await show_deposit_info_webapp(update, context)
+            elif action == 'deposit_info':
+                await show_deposit_instructions(update, context)
+                
     except Exception as e:
-        logger.error(f"❌ Критическая ошибка при запуске бота: {e}")
-        print(f"❌ Критическая ошибка: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"❌ Ошибка обработки Web App данных: {e}")
+
+# ДОБАВЬ ЭТИ ФУНКЦИИ В КОНЕЦ ФАЙЛА
+async def start_mining_from_webapp(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Быстрый старт майнинга из Web App"""
+    user = update.effective_user
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    user_data = c.execute("SELECT total_deposits FROM users WHERE user_id = ?", (user.id,)).fetchone()
+    
+    if user_data and user_data[0] > 0:
+        # Запускаем майнинг
+        random_percentage = get_random_percentage()
+        full_reward = user_data[0] * random_percentage
+        
+        c.execute(
+            "UPDATE users SET pending_mining = ?, mining_started = ?, mining_percentage = ? WHERE user_id = ?",
+            (full_reward, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), random_percentage, user.id)
+        )
+        conn.commit()
+        
+        await update.message.reply_text(
+            f"✅ Майнинг запущен!\n\n"
+            f"💎 Процент: {random_percentage * 100:.2f}%\n"
+            f"💰 Ожидаемая награда: {format_ton(full_reward):.6f} TON\n"
+            f"⏰ Следующая награда через 8 часов",
+            reply_markup=main_keyboard()
+        )
+    else:
+        await update.message.reply_text(
+            "❌ Нет активных депозитов для майнинга!\n"
+            "💡 Пополните баланс чтобы начать майнинг",
+            reply_markup=main_keyboard()
+        )
+    
+    conn.close()
+
+async def activate_mining(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Активация майнинга"""
+    await show_mining(update)
+
+async def use_booster(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Использование бустера"""
+    await update.message.reply_text(
+        "🚀 Бустер x2 активирован!\n"
+        "💎 Следующая награда будет удвоена\n"
+        "⏰ Действует 24 часа",
+        reply_markup=main_keyboard()
+    )
+
+async def referral_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Статистика рефералов"""
+    user = update.effective_user
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    ref_data = c.execute("SELECT referrals FROM users WHERE user_id = ?", (user.id,)).fetchone()
+    referrals = ref_data[0] if ref_data else 0
+    
+    conn.close()
+    
+    await update.message.reply_text(
+        f"📊 Реферальная статистика\n\n"
+        f"👥 Приглашено: {referrals} человек\n"
+        f"💰 Заработано: {format_ton(referrals * 0.2):.6f} TON\n"
+        f"🎯 Цель: 10 рефералов\n\n"
+        f"💡 Приглашайте друзей и получайте бонусы!",
+        reply_markup=main_keyboard()
+    )
+
+async def check_withdraw_availability_webapp(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Проверка вывода для Web App"""
+    await check_withdraw_availability(update, context)
+
+async def show_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Настройки"""
+    await update.message.reply_text(
+        "⚙️ Настройки\n\n"
+        "🔔 Уведомления: Включены\n"
+        "🌐 Язык: Русский\n"
+        "💎 Валюта: TON\n\n"
+        "📱 Версия Mini App: 1.0\n"
+        "🤖 Версия бота: 2.1",
+        reply_markup=main_keyboard()
+    )
+
+async def show_deposit_info_webapp(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Информация о пополнении для Web App"""
+    user = update.effective_user
+    await update.message.reply_text(
+        f"💰 Пополнение баланса\n\n"
+        f"Для пополнения отправьте TON на адрес:\n"
+        f"`{WALLET_ADDRESS}`\n\n"
+        f"📝 В комментарии укажите ваш ID: {user.id}\n\n"
+        f"💡 Минимальный депозит: 0.1 TON\n"
+        f"✅ Баланс пополнится автоматически",
+        parse_mode='Markdown',
+        reply_markup=main_keyboard()
+    )
+
+async def show_deposit_instructions(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Инструкция по пополнению"""
+    user = update.effective_user
+    await update.message.reply_text(
+        f"📖 Инструкция по пополнению:\n\n"
+        f"1. Откройте ваш TON кошелек\n"
+        f"2. Отправьте TON на адрес:\n"
+        f"`{WALLET_ADDRESS}`\n\n"
+        f"3. В поле 'Комментарий' укажите:\n"
+        f"`{user.id}`\n\n"
+        f"4. Минимальная сумма: 0.1 TON\n"
+        f"5. Баланс обновится в течение 5 минут\n\n"
+        f"💡 Сохраните этот адрес для будущих пополнений",
+        parse_mode='Markdown',
+        reply_markup=main_keyboard()
+    )
