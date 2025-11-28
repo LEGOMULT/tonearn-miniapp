@@ -383,13 +383,13 @@
             <div class="section" id="profile-section">
                 <div class="balance-card">
                     <div class="balance-label">Ваш профиль</div>
-                    <div class="balance-amount" id="profile-username">Гость</div>
+                    <div class="balance-amount" id="profile-nickname">Гость</div>
                     <div class="balance-currency">PRO уровень</div>
                 </div>
 
                 <div class="info-card">
                     <div class="stat-label">Никнейм</div>
-                    <div class="stat-value" id="user-username">Гость</div>
+                    <div class="stat-value" id="user-nickname">Гость</div>
                     
                     <div class="stat-label">Статус майнинга</div>
                     <div class="stat-value" style="color: #f59f00;" id="mining-status">Активен ✓</div>
@@ -464,8 +464,7 @@
             total_deposits: 0.500000,
             total_mined: 0.750500,
             user_id: 5855368265,
-            username: "Гость",
-            display_name: "Гость",
+            nickname: "Гость",
             mining_started: true,
             mining_percentage: 1.45,
             pending_mining: 0.042750,
@@ -480,19 +479,9 @@
             if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
                 const telegramUser = tg.initDataUnsafe.user;
                 
-                // Получаем реальный ник пользователя
-                if (telegramUser.username) {
-                    userData.username = "@" + telegramUser.username;
-                    userData.display_name = "@" + telegramUser.username;
-                } else if (telegramUser.first_name) {
-                    userData.display_name = telegramUser.first_name;
-                    if (telegramUser.last_name) {
-                        userData.display_name += " " + telegramUser.last_name;
-                    }
-                    userData.username = userData.display_name;
-                } else {
-                    userData.display_name = "Пользователь";
-                    userData.username = "Пользователь";
+                // Используем никнейм пользователя
+                if (telegramUser.first_name) {
+                    userData.nickname = telegramUser.first_name;
                 }
                 
                 // Обновляем ID пользователя
@@ -564,9 +553,9 @@
             document.getElementById('referral-balance').textContent = userData.referral_balance.toFixed(6);
             document.getElementById('referral-count').textContent = userData.referrals_count;
             
-            // Обновляем профиль - отображаем имя пользователя
-            document.getElementById('profile-username').textContent = userData.display_name;
-            document.getElementById('user-username').textContent = userData.username;
+            // Обновляем профиль - только никнейм
+            document.getElementById('profile-nickname').textContent = userData.nickname;
+            document.getElementById('user-nickname').textContent = userData.nickname;
             document.getElementById('deposit-user-id').textContent = userData.user_id;
             document.getElementById('mining-status').textContent = userData.mining_started ? 'Активен ✓' : 'Не активен';
         }
