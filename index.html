@@ -1,755 +1,478 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TonEarn - Майнинг TON</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Arial, sans-serif;
+import sqlite3
+import logging
+import random
+import asyncio
+import csv
+import io
+from decimal import Decimal, ROUND_DOWN
+from datetime import datetime, timedelta
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
+
+# Настройки
+TOKEN = "8501762872:AAELKL5vV1Jo4zM70SxX8oCOUf786CJvdTc"
+ADMINS = [5855368265]
+WALLET_ADDRESS = "UQCH1F3tgQ8yyqYHxZyFBw6_Y3tfYu91KP5ko16mM7CPaWY5"
+
+# Настройка логирования
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+def init_db():
+    """Инициализация базы данных"""
+    try:
+        conn = sqlite3.connect('bot.db', check_same_thread=False)
+        c = conn.cursor()
+        
+        c.execute('''CREATE TABLE IF NOT EXISTS users
+                     (user_id INTEGER PRIMARY KEY, 
+                      username TEXT,
+                      balance REAL DEFAULT 0,
+                      total_deposits REAL DEFAULT 0,
+                      total_mined REAL DEFAULT 0,
+                      pending_mining REAL DEFAULT 0,
+                      mining_started TIMESTAMP,
+                      mining_percentage REAL DEFAULT 0,
+                      referrals INTEGER DEFAULT 0,
+                      referral_code TEXT,
+                      last_mining TIMESTAMP,
+                      registered TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        
+        c.execute('''CREATE TABLE IF NOT EXISTS transactions
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      user_id INTEGER,
+                      amount REAL,
+                      type TEXT,
+                      status TEXT DEFAULT 'completed',
+                      date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        
+        c.execute('''CREATE TABLE IF NOT EXISTS withdrawals
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      user_id INTEGER,
+                      amount REAL,
+                      wallet TEXT,
+                      status TEXT DEFAULT 'completed',
+                      date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        
+        c.execute('''CREATE TABLE IF NOT EXISTS user_wallets
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      user_id INTEGER,
+                      wallet_address TEXT,
+                      is_active BOOLEAN DEFAULT 1,
+                      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                      UNIQUE(user_id, wallet_address))''')
+        
+        # Добавляем новые столбцы если нужно
+        try:
+            c.execute("SELECT mining_started FROM users LIMIT 1")
+        except sqlite3.OperationalError:
+            c.execute("ALTER TABLE users ADD COLUMN mining_started TIMESTAMP")
+            
+        try:
+            c.execute("SELECT mining_percentage FROM users LIMIT 1")
+        except sqlite3.OperationalError:
+            c.execute("ALTER TABLE users ADD COLUMN mining_percentage REAL DEFAULT 0")
+        
+        # Добавляем админов
+        for admin_id in ADMINS:
+            c.execute("INSERT OR IGNORE INTO users (user_id, username) VALUES (?, ?)", 
+                     (admin_id, "Admin"))
+        
+        conn.commit()
+        conn.close()
+        logger.info("✅ База данных инициализирована")
+    except Exception as e:
+        logger.error(f"❌ Ошибка инициализации базы данных: {e}")
+        raise
+
+def get_db_connection():
+    """Создание соединения с базой данных"""
+    conn = sqlite3.connect('bot.db', check_same_thread=False)
+    return conn
+
+def is_admin(user_id):
+    """Проверяет, является ли пользователь админом"""
+    return user_id in ADMINS
+
+def format_ton(value):
+    """Форматирование значения TON"""
+    try:
+        if value is None:
+            return 0.0
+        return float(Decimal(str(value)).quantize(Decimal('0.000001'), rounding=ROUND_DOWN))
+    except:
+        return 0.0
+
+def get_random_percentage():
+    """Генерирует случайный процент от 1.12% до 1.68%"""
+    return random.randint(112, 168) / 10000.0
+
+def get_user_data(user_id):
+    """Получение данных пользователя из базы"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        user_data = c.execute(
+            "SELECT balance, total_deposits, total_mined, pending_mining, mining_started, mining_percentage, referrals FROM users WHERE user_id = ?", 
+            (user_id,)
+        ).fetchone()
+        
+        conn.close()
+        
+        if user_data:
+            balance, deposits, mined, pending_mining, mining_started, mining_percentage, referrals = user_data
+            return {
+                'balance': format_ton(balance),
+                'total_deposits': format_ton(deposits),
+                'total_mined': format_ton(mined),
+                'pending_mining': format_ton(pending_mining),
+                'mining_started': mining_started,
+                'mining_percentage': mining_percentage,
+                'referrals': referrals
+            }
+        return None
+    except Exception as e:
+        logger.error(f"❌ Ошибка получения данных пользователя: {e}")
+        return None
+
+def main_keyboard():
+    return ReplyKeyboardMarkup([
+        ['🏠 Главная', '⛏️ Майнинг'],
+        ['👥 Рефералы', '👤 Профиль']
+    ], resize_keyboard=True)
+
+# ОСНОВНЫЕ КОМАНДЫ
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /start"""
+    try:
+        user = update.effective_user
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        c.execute("INSERT OR IGNORE INTO users (user_id, username) VALUES (?, ?)",
+                  (user.id, user.username or 'No username'))
+        
+        # Обработка реферальной ссылки
+        if context.args:
+            referral_code = context.args[0]
+            if referral_code.startswith('ref'):
+                referrer_id = int(referral_code[3:])
+                if referrer_id != user.id:
+                    c.execute("UPDATE users SET balance = balance + 0.2, referrals = referrals + 1 WHERE user_id = ?",
+                              (referrer_id,))
+                    c.execute("UPDATE users SET balance = balance + 0.1 WHERE user_id = ?",
+                              (user.id,))
+        
+        conn.commit()
+        conn.close()
+        
+        await update.message.reply_text(
+            "👋 Добро пожаловать в TonEarn!\n\n"
+            "💎 Зарабатывайте TON с помощью майнинга!\n"
+            "💰 Пополняйте баланс и получайте 1.12%-1.68% каждые 8 часов!\n\n"
+            "📱 Для доступа к полному функционалу используйте мини-приложение:",
+            reply_markup=main_keyboard()
+        )
+        
+        # Создаем кнопку для открытия мини-приложения
+        keyboard = [[InlineKeyboardButton("🚀 Открыть мини-приложение", web_app={'url': 'https://your-domain.com/mini-app.html'})]]
+        await update.message.reply_text(
+            "Нажмите кнопку ниже чтобы открыть мини-приложение:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка в start: {e}")
+        await update.message.reply_text("❌ Произошла ошибка. Попробуйте позже.")
+
+async def mini_app(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Команда для получения данных мини-приложения"""
+    try:
+        user = update.effective_user
+        
+        # Получаем данные пользователя
+        user_data = get_user_data(user.id)
+        
+        if not user_data:
+            await update.message.reply_text("❌ Данные пользователя не найдены")
+            return
+        
+        # Формируем данные для мини-приложения
+        mini_app_data = {
+            'user_id': user.id,
+            'nickname': user.username or user.first_name or "Пользователь",
+            'balance': user_data['balance'],
+            'total_deposits': user_data['total_deposits'],
+            'total_mined': user_data['total_mined'],
+            'pending_mining': user_data['pending_mining'],
+            'mining_started': user_data['mining_started'],
+            'mining_percentage': user_data['mining_percentage'],
+            'referrals': user_data['referrals'],
+            'referral_code': f"ref{user.id}",
+            'wallet_address': WALLET_ADDRESS
         }
+        
+        # Отправляем данные пользователю (в реальном приложении это будет API endpoint)
+        response_text = (
+            f"📊 Ваши данные для мини-приложения:\n\n"
+            f"🆔 ID: {mini_app_data['user_id']}\n"
+            f"👤 Ник: {mini_app_data['nickname']}\n"
+            f"💰 Баланс: {mini_app_data['balance']:.6f} TON\n"
+            f"🏦 Депозиты: {mini_app_data['total_deposits']:.6f} TON\n"
+            f"⛏️ Накопано: {mini_app_data['total_mined']:.6f} TON\n"
+            f"👥 Рефералов: {mini_app_data['referrals']}\n"
+            f"🔗 Реф. код: {mini_app_data['referral_code']}"
+        )
+        
+        await update.message.reply_text(response_text)
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка в mini_app: {e}")
+        await update.message.reply_text("❌ Произошла ошибка при получении данных")
 
-        body {
-            background: linear-gradient(135deg, #fff9db 0%, #fff3bf 100%);
-            color: #333;
-            min-height: 100vh;
-            padding: 0;
-        }
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик текстовых сообщений"""
+    try:
+        text = update.message.text
+        
+        if text == '🏠 Главная':
+            await show_main(update)
+        elif text == '⛏️ Майнинг':
+            await show_mining(update)
+        elif text == '👥 Рефералы':
+            await show_referrals(update)
+        elif text == '👤 Профиль':
+            await show_profile(update)
+        elif text == '📱 Мини-приложение':
+            await mini_app(update, context)
+        else:
+            if context.user_data.get('waiting_for_wallet'):
+                await process_wallet_input(update, context)
+            else:
+                await update.message.reply_text("Используйте кнопки меню ниже 👇", reply_markup=main_keyboard())
+    except Exception as e:
+        logger.error(f"❌ Ошибка в handle_message: {e}")
+        await update.message.reply_text("❌ Произошла ошибка.")
 
-        .container {
-            max-width: 400px;
-            width: 100%;
-            margin: 0 auto;
-            background: white;
-            min-height: 100vh;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-            position: relative;
-        }
+async def show_main(update: Update):
+    """Показать главную страницу"""
+    try:
+        user = update.effective_user
+        user_data = get_user_data(user.id)
+        
+        if user_data:
+            available_balance = user_data['balance'] - user_data['pending_mining']
+            
+            text = (
+                f"📊 Главная панель\n\n"
+                f"💼 Баланс: {available_balance:.6f} TON\n"
+                f"🏦 Депозиты: {user_data['total_deposits']:.6f} TON\n"
+                f"⛏️ Накопано: {user_data['total_mined']:.6f} TON\n"
+                f"👥 Рефералов: {user_data['referrals']}\n\n"
+                f"💡 Получайте 1.12%-1.68% от депозита каждые 8 часов"
+            )
+        else:
+            text = "❌ Ошибка загрузки данных"
+        
+        await update.message.reply_text(text, reply_markup=main_keyboard())
+    except Exception as e:
+        logger.error(f"❌ Ошибка в show_main: {e}")
+        await update.message.reply_text("❌ Произошла ошибка.")
 
-        .header {
-            background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
-            padding: 25px 20px;
-            text-align: center;
-            color: #333;
-            border-bottom: 3px solid #f59f00;
-        }
-
-        .header h1 {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .header p {
-            font-size: 14px;
-            opacity: 0.9;
-            line-height: 1.4;
-        }
-
-        .content {
-            padding: 20px;
-            padding-bottom: 80px;
-        }
-
-        .section {
-            display: none;
-        }
-
-        .section.active {
-            display: block;
-        }
-
-        .balance-card {
-            background: linear-gradient(135deg, #fff9db 0%, #ffec99 100%);
-            border-radius: 15px;
-            padding: 25px;
-            text-align: center;
-            margin-bottom: 20px;
-            border: 2px solid #ffd700;
-            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
-        }
-
-        .balance-label {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 10px;
-            font-weight: 500;
-        }
-
-        .balance-amount {
-            font-size: 36px;
-            font-weight: 700;
-            color: #333;
-            margin-bottom: 5px;
-        }
-
-        .balance-currency {
-            font-size: 16px;
-            color: #f59f00;
-            font-weight: 600;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        .stat-card {
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 15px;
-            text-align: center;
-            border: 1px solid #ffd700;
-        }
-
-        .stat-value {
-            font-size: 18px;
-            font-weight: 700;
-            color: #333;
-            margin-bottom: 5px;
-        }
-
-        .stat-label {
-            font-size: 11px;
-            color: #666;
-        }
-
-        .action-btn {
-            background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
-            border: none;
-            border-radius: 12px;
-            color: #333;
-            padding: 16px;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
-            width: 100%;
-            margin-bottom: 15px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
-        }
-
-        .action-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
-        }
-
-        .action-btn:active {
-            transform: translateY(0);
-        }
-
-        .action-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .timer-container {
-            background: #333;
-            color: white;
-            border-radius: 12px;
-            padding: 15px;
-            text-align: center;
-            margin-bottom: 15px;
-        }
-
-        .timer-label {
-            font-size: 12px;
-            color: #ffd700;
-            margin-bottom: 8px;
-        }
-
-        .timer {
-            font-size: 20px;
-            font-weight: 700;
-            font-family: 'Courier New', monospace;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #e9ecef;
-            border-radius: 4px;
-            margin: 15px 0;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #ffd700 0%, #ffed4a 100%);
-            border-radius: 4px;
-            transition: width 0.3s ease;
-        }
-
-        .info-card {
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 15px;
-            border: 1px solid #ffd700;
-        }
-
-        .referral-code {
-            background: white;
-            border: 2px dashed #ffd700;
-            border-radius: 10px;
-            padding: 15px;
-            text-align: center;
-            font-size: 16px;
-            font-weight: 700;
-            margin: 15px 0;
-            color: #333;
-            word-break: break-all;
-        }
-
-        .nav {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr 1fr;
-            background: white;
-            border-top: 3px solid #ffd700;
-            padding: 12px 5px;
-            position: fixed;
-            bottom: 0;
-            width: 100%;
-            max-width: 400px;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-        }
-
-        .nav-item {
-            padding: 10px 5px;
-            text-align: center;
-            cursor: pointer;
-            border-radius: 10px;
-            font-size: 12px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            color: #666;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .nav-item.active {
-            background: #fff9db;
-            color: #333;
-            font-weight: 600;
-        }
-
-        .nav-icon {
-            font-size: 20px;
-        }
-
-        .notification {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #333;
-            color: white;
-            padding: 15px 25px;
-            border-radius: 10px;
-            font-weight: 600;
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            max-width: 90%;
-        }
-
-        .notification.show {
-            opacity: 1;
-        }
-
-        .warning-text {
-            color: #e74c3c;
-            font-size: 12px;
-            margin-top: 5px;
-            font-weight: 600;
-        }
-    </style>
-</head>
-<body>
-    <div class="notification" id="notification"></div>
-
-    <div class="container">
-        <div class="header">
-            <h1 id="headerTitle">⛏️ TonEarn</h1>
-            <p id="headerSubtitle">Майнинг TON каждые 8 часов</p>
-        </div>
-
-        <div class="content">
-            <!-- Главная -->
-            <div class="section active" id="main-section">
-                <div class="balance-card">
-                    <div class="balance-label">Общий баланс</div>
-                    <div class="balance-amount" id="balance">0.000000</div>
-                    <div class="balance-currency">TON</div>
-                </div>
-
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value" id="total-deposits">0.000000</div>
-                        <div class="stat-label">Депозиты</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="total-mined">0.000000</div>
-                        <div class="stat-label">Накопано</div>
-                    </div>
-                </div>
-
-                <div class="info-card">
-                    <div class="stat-label">💎 Майнинг TON</div>
-                    <div class="stat-value" style="font-size: 14px; font-weight: normal;">
-                        Получайте 1.12%-1.68% от депозита каждые 8 часов
-                    </div>
-                </div>
-
-                <button class="action-btn" onclick="showSection('mining')">
-                    ⚙️ Управление майнингом
-                </button>
-
-                <button class="action-btn" onclick="showSection('deposit')">
-                    💰 Пополнить баланс
-                </button>
-            </div>
-
-            <!-- Майнинг -->
-            <div class="section" id="mining-section">
-                <div class="balance-card">
-                    <div class="balance-label">Доступно к сбору</div>
-                    <div class="balance-amount" id="mining-balance">0.000000</div>
-                    <div class="balance-currency">TON</div>
-                </div>
-
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
-                </div>
-
-                <div class="timer-container">
-                    <div class="timer-label">Следующий майнинг через</div>
-                    <div class="timer" id="timer">08:00:00</div>
-                </div>
-
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value" id="mining-percentage">0%</div>
-                        <div class="stat-label">Текущий %</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="mining-power">0%</div>
-                        <div class="stat-label">Мощность</div>
-                    </div>
-                </div>
-
-                <button class="action-btn" onclick="collectMining()" id="collect-btn" style="display: none;">
-                    💰 Собрать награду
-                </button>
-
-                <button class="action-btn" onclick="startMining()" id="start-btn">
-                    ⚡ Начать майнинг
-                </button>
-            </div>
-
-            <!-- Рефералы -->
-            <div class="section" id="referrals-section">
-                <div class="balance-card">
-                    <div class="balance-label">Реферальный доход</div>
-                    <div class="balance-amount" id="referral-balance">0.000000</div>
-                    <div class="balance-currency">TON</div>
-                </div>
-
-                <div class="info-card">
-                    <div class="stat-label">👥 Ваша реферальная ссылка</div>
-                    <div class="referral-code" id="referral-code">Загрузка...</div>
-                    <button class="action-btn" onclick="copyReferralCode()">
-                        📋 Скопировать ссылку
-                    </button>
-                </div>
-
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value" id="referral-count">0</div>
-                        <div class="stat-label">Приглашено</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="referral-bonus">0.2 TON</div>
-                        <div class="stat-label">Ваш бонус</div>
-                    </div>
-                </div>
-
-                <div class="info-card">
-                    <div class="stat-label">🎁 Как работает реферальная система?</div>
-                    <div class="stat-value" style="font-size: 14px; font-weight: normal;">
-                        • Вам за реферала: 0.2 TON<br>
-                        • Рефералу: 0.1 TON
-                    </div>
-                </div>
-            </div>
-
-            <!-- Профиль -->
-            <div class="section" id="profile-section">
-                <div class="balance-card">
-                    <div class="balance-label">Ваш профиль</div>
-                    <div class="balance-amount" id="profile-nickname">Загрузка...</div>
-                    <div class="balance-currency">PRO уровень</div>
-                </div>
-
-                <div class="info-card">
-                    <div class="stat-label">Никнейм</div>
-                    <div class="stat-value" id="user-nickname">Загрузка...</div>
-                    
-                    <div class="stat-label">Статус майнинга</div>
-                    <div class="stat-value" style="color: #f59f00;" id="mining-status">Не активен</div>
-                    
-                    <div class="stat-label">Ваш ID</div>
-                    <div class="stat-value" id="profile-user-id">Загрузка...</div>
-                </div>
-
-                <button class="action-btn" onclick="showSection('deposit')">
-                    💰 Пополнить баланс
-                </button>
-
-                <button class="action-btn" onclick="showWithdraw()">
-                    💸 Вывести средства
-                </button>
-            </div>
-
-            <!-- Пополнение -->
-            <div class="section" id="deposit-section">
-                <div class="info-card">
-                    <div class="balance-label">💰 Пополнение баланса</div>
-                    <div class="stat-value" style="font-size: 14px; font-weight: normal; margin: 15px 0;">
-                        Для пополнения баланса отправьте TON на адрес:
-                    </div>
-                    
-                    <div class="referral-code" id="deposit-wallet">
-                        UQCH1F3tgQ8yyqYHxZyFBw6_Y3tfYu91KP5ko16mM7CPaWY5
-                    </div>
-
-                    <div class="stat-label">ВАЖНО: В комментарии укажите ваш ID</div>
-                    <div class="stat-value" id="deposit-user-id">Загрузка...</div>
-                    <div class="warning-text">Без указания ID средства не будут зачислены!</div>
-
-                    <div class="stat-label" style="margin-top: 15px;">Минимальный депозит</div>
-                    <div class="stat-value">0.1 TON</div>
-                </div>
-
-                <button class="action-btn" onclick="copyWalletAddress()">
-                    📋 Скопировать адрес
-                </button>
-
-                <button class="action-btn" onclick="showSection('main')">
-                    ← Назад
-                </button>
-            </div>
-        </div>
-
-        <!-- Навигация -->
-        <div class="nav">
-            <div class="nav-item active" onclick="showSection('main')">
-                <div class="nav-icon">🏠</div>
-                <div>Главная</div>
-            </div>
-            <div class="nav-item" onclick="showSection('mining')">
-                <div class="nav-icon">⚙️</div>
-                <div>Майнинг</div>
-            </div>
-            <div class="nav-item" onclick="showSection('referrals')">
-                <div class="nav-icon">👥</div>
-                <div>Рефералы</div>
-            </div>
-            <div class="nav-item" onclick="showSection('profile')">
-                <div class="nav-icon">👤</div>
-                <div>Профиль</div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Данные пользователя
-        let userData = {
-            balance: 0,
-            total_deposits: 0,
-            total_mined: 0,
-            user_id: null,
-            nickname: "Гость",
-            mining_started: false,
-            mining_percentage: 0,
-            pending_mining: 0,
-            referrals_count: 0,
-            referral_balance: 0
-        };
-
-        let timeLeft = 8 * 3600; // 8 часов в секундах
-        let timerInterval = null;
-        let isMiningCompleted = false;
-
-        // Инициализация пользователя Telegram
-        function initTelegramUser() {
-            if (window.Telegram && Telegram.WebApp) {
-                const tg = Telegram.WebApp;
-                tg.ready();
-                tg.expand();
+async def show_mining(update: Update):
+    """Показать страницу майнинга"""
+    try:
+        user = update.effective_user
+        user_data = get_user_data(user.id)
+        
+        if user_data:
+            deposits = user_data['total_deposits']
+            mined = user_data['total_mined']
+            mining_started = user_data['mining_started']
+            mining_percentage = user_data['mining_percentage']
+            pending_mining = user_data['pending_mining']
+            
+            if deposits == 0:
+                text = "❌ Нет активных депозитов!\n\n💡 Пополните баланс чтобы начать майнинг!"
+                keyboard = [[InlineKeyboardButton("💰 Пополнить", callback_data="deposit")]]
+            else:
+                can_mine, time_left, progress = await check_mining_progress(mining_started, mining_percentage, deposits)
                 
-                // Показываем кнопку "Назад" для закрытия приложения
-                tg.BackButton.show();
-                tg.BackButton.onClick(() => {
-                    tg.close();
-                });
-                
-                // Получаем данные пользователя
-                const user = tg.initDataUnsafe.user;
-                
-                if (user) {
-                    // Формируем никнейм
-                    if (user.username) {
-                        userData.nickname = "@" + user.username;
-                    } else if (user.first_name) {
-                        userData.nickname = user.first_name;
-                        if (user.last_name) {
-                            userData.nickname += " " + user.last_name;
-                        }
-                    }
-                    userData.user_id = user.id;
+                if can_mine:
+                    text = (
+                        f"✅ Майнинг завершен!\n\n"
+                        f"💰 Депозит: {deposits:.6f} TON\n"
+                        f"💎 Доступно для сбора: {pending_mining:.6f} TON\n"
+                        f"⛏️ Всего накоплено: {mined:.6f} TON\n\n"
+                        f"💡 Нажмите кнопку ниже чтобы собрать награду"
+                    )
+                    keyboard = [[InlineKeyboardButton("✨ Собрать награду", callback_data="collect_mining")]]
+                else:
+                    # Рассчитываем текущую награду на основе прогресса
+                    current_reward = deposits * mining_percentage * progress
                     
-                    // Генерируем реферальную ссылку
-                    document.getElementById('referral-code').textContent = 
-                        `https://t.me/tonearnro_bot?start=ref${user.id}`;
-                } else {
-                    // Если данные пользователя недоступны
-                    userData.user_id = generateUserId();
-                    userData.nickname = "Пользователь";
-                    document.getElementById('referral-code').textContent = 
-                        `https://t.me/tonearnro_bot?start=ref${userData.user_id}`;
-                }
-            } else {
-                // Режим отладки вне Telegram
-                userData.user_id = generateUserId();
-                userData.nickname = "Тестовый пользователь";
-                document.getElementById('referral-code').textContent = 
-                    `https://t.me/tonearnro_bot?start=ref${userData.user_id}`;
-            }
-            
-            updateUI();
-        }
+                    text = (
+                        f"⏳ Майнинг в процессе...\n\n"
+                        f"💰 Депозит: {deposits:.6f} TON\n"
+                        f"💎 Текущая награда: {current_reward:.6f} TON\n"
+                        f"📈 Прогресс: {progress*100:.1f}%\n"
+                        f"⛏️ Всего накоплено: {mined:.6f} TON\n\n"
+                        f"⏰ Следующий майнинг через: {time_left}\n"
+                        f"💡 Каждые 8 часов вы получаете 1.12%-1.68% от депозита"
+                    )
+                    keyboard = []
+        else:
+            text = "❌ Ошибка загрузки данных"
+            keyboard = []
+        
+        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+    except Exception as e:
+        logger.error(f"❌ Ошибка в show_mining: {e}")
+        await update.message.reply_text("❌ Произошла ошибка.")
 
-        // Генерация ID пользователя
-        function generateUserId() {
-            return Math.floor(100000 + Math.random() * 900000);
-        }
+async def check_mining_progress(mining_started, mining_percentage, deposits):
+    """Проверка прогресса майнинга и расчет текущей награды"""
+    if not mining_started or not mining_percentage:
+        return True, "0 минут", 1.0
+    
+    try:
+        if isinstance(mining_started, str):
+            mining_start_time = datetime.strptime(mining_started, '%Y-%m-%d %H:%M:%S')
+        else:
+            mining_start_time = mining_started
+            
+        current_time = datetime.now()
+        time_diff = current_time - mining_start_time
+        total_seconds_passed = time_diff.total_seconds()
+        
+        eight_hours_in_seconds = 8 * 3600
+        
+        if total_seconds_passed >= eight_hours_in_seconds:
+            return True, "0 минут", 1.0
+        else:
+            seconds_left = eight_hours_in_seconds - total_seconds_passed
+            hours_left = int(seconds_left // 3600)
+            minutes_left = int((seconds_left % 3600) // 60)
+            seconds_left = int(seconds_left % 60)
+            
+            # Прогресс от 0 до 1
+            progress = total_seconds_passed / eight_hours_in_seconds
+            
+            return False, f"{hours_left:02d}:{minutes_left:02d}:{seconds_left:02d}", progress
+    except Exception as e:
+        logger.error(f"Ошибка при проверке прогресса майнинга: {e}")
+        return True, "0 минут", 1.0
 
-        // Сбор награды за майнинг
-        function collectMining() {
-            if (userData.pending_mining <= 0) {
-                showNotification('❌ Нет доступной награды для сбора');
-                return;
-            }
-            
-            userData.balance += userData.pending_mining;
-            userData.total_mined += userData.pending_mining;
-            userData.pending_mining = 0;
-            userData.mining_started = false;
-            isMiningCompleted = false;
-            timeLeft = 8 * 3600;
-            
-            // Останавливаем таймер
-            if (timerInterval) {
-                clearInterval(timerInterval);
-                timerInterval = null;
-            }
-            
-            updateUI();
-            showNotification('✅ Награда собрана!');
-            
-            document.getElementById('start-btn').style.display = 'block';
-            document.getElementById('collect-btn').style.display = 'none';
-        }
+async def show_referrals(update: Update):
+    """Показать реферальную страницу"""
+    try:
+        user = update.effective_user
+        user_data = get_user_data(user.id)
+        
+        ref_code = f"ref{user.id}"
+        ref_link = f"https://t.me/tonearnro_bot?start={ref_code}"
+        
+        referrals = user_data['referrals'] if user_data else 0
+        
+        text = (
+            f"👥 Реферальная программа\n\n"
+            f"🔗 Ваша ссылка:\n{ref_link}\n\n"
+            f"📊 Приглашено: {referrals}\n\n"
+            f"🎁 Бонусы:\n"
+            f"• Вам за реферала: 0.2 TON\n"
+            f"• Рефералу: 0.1 TON"
+        )
+        
+        await update.message.reply_text(text)
+    except Exception as e:
+        logger.error(f"❌ Ошибка в show_referrals: {e}")
+        await update.message.reply_text("❌ Произошла ошибка.")
 
-        // Запуск майнинга
-        function startMining() {
-            if (userData.mining_started) {
-                showNotification('❌ Майнинг уже запущен!');
-                return;
-            }
+async def show_profile(update: Update):
+    """Показать профиль пользователя"""
+    try:
+        user = update.effective_user
+        user_data = get_user_data(user.id)
+        
+        if user_data:
+            available_balance = user_data['balance'] - user_data['pending_mining']
             
-            userData.pending_mining = 0.005000;
-            userData.mining_percentage = (Math.random() * (1.68 - 1.12) + 1.12).toFixed(2);
-            userData.mining_started = true;
-            isMiningCompleted = false;
-            timeLeft = 8 * 3600;
-            
-            // Запускаем таймер, если он еще не запущен
-            if (!timerInterval) {
-                timerInterval = setInterval(updateTimer, 1000);
-            }
-            
-            updateUI();
-            showNotification('⚡ Майнинг запущен!');
-            
-            document.getElementById('start-btn').style.display = 'none';
-            document.getElementById('collect-btn').style.display = 'block';
-        }
+            text = (
+                f"👤 Профиль\n\n"
+                f"🆔 ID: {user.id}\n"
+                f"👤 Имя: {user.first_name}\n"
+                f"📅 Регистрация: {datetime.now().strftime('%Y-%m-%d')}\n\n"
+                f"💼 Баланс: {available_balance:.6f} TON\n"
+                f"🏦 Депозиты: {user_data['total_deposits']:.6f} TON\n"
+                f"⛏️ Накопано: {user_data['total_mined']:.6f} TON\n"
+                f"👥 Рефералов: {user_data['referrals']}"
+            )
+        else:
+            text = "❌ Ошибка загрузки данных"
+        
+        keyboard = [
+            [InlineKeyboardButton("💰 Пополнить", callback_data="deposit")],
+            [InlineKeyboardButton("💸 Вывести", callback_data="withdraw")]
+        ]
+        
+        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+    except Exception as e:
+        logger.error(f"❌ Ошибка в show_profile: {e}")
+        await update.message.reply_text("❌ Произошла ошибка.")
 
-        // Копирование реферальной ссылки
-        function copyReferralCode() {
-            const code = document.getElementById('referral-code').textContent;
-            navigator.clipboard.writeText(code).then(() => {
-                showNotification('📋 Реферальная ссылка скопирована!');
-            }).catch(err => {
-                // Fallback для старых браузеров
-                const textArea = document.createElement('textarea');
-                textArea.value = code;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-                showNotification('📋 Реферальная ссылка скопирована!');
-            });
-        }
+# Остальные функции остаются такими же как в предыдущем коде...
+# [ВСТАВЬТЕ СЮДА ВСЕ ОСТАЛЬНЫЕ ФУНКЦИИ ИЗ ПРЕДЫДУЩЕГО КОДА]
+# handle_callback, show_deposit_info, check_withdraw_availability, 
+# request_new_wallet, process_wallet_input, process_withdraw_with_wallet,
+# create_withdrawal_request, collect_mining, start_mining,
+# и все админские команды...
 
-        // Копирование адреса кошелька
-        function copyWalletAddress() {
-            const address = document.getElementById('deposit-wallet').textContent;
-            navigator.clipboard.writeText(address).then(() => {
-                showNotification('📋 Адрес кошелька скопирован!');
-            }).catch(err => {
-                // Fallback для старых браузеров
-                const textArea = document.createElement('textarea');
-                textArea.value = address;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-                showNotification('📋 Адрес кошелька скопирован!');
-            });
-        }
+def main():
+    """Главная функция запуска бота"""
+    try:
+        print("🔄 Инициализация базы данных...")
+        init_db()
+        
+        print("🔄 Создание приложения...")
+        application = Application.builder().token(TOKEN).build()
+        
+        print("🔄 Добавление обработчиков...")
+        # Основные команды
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("mini_app", mini_app))
+        application.add_handler(CommandHandler("data", mini_app))  # Альтернативная команда
+        
+        # Админские команды
+        application.add_handler(CommandHandler("admin", admin_panel))
+        application.add_handler(CommandHandler("stats", admin_stats))
+        application.add_handler(CommandHandler("users", admin_users))
+        application.add_handler(CommandHandler("user", admin_user_info))
+        application.add_handler(CommandHandler("addbalance", admin_add_balance))
+        application.add_handler(CommandHandler("removebalance", admin_remove_balance))
+        application.add_handler(CommandHandler("resetbalance", admin_reset_balance))
+        application.add_handler(CommandHandler("resetmining", admin_reset_mining))
+        application.add_handler(CommandHandler("addadmin", admin_add_admin))
+        application.add_handler(CommandHandler("broadcast", admin_broadcast))
+        application.add_handler(CommandHandler("export_users", admin_export_users))
+        
+        # Обработчики callback и сообщений
+        application.add_handler(CallbackQueryHandler(handle_callback))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+        
+        print("🤖 Бот TonEarn запускается...")
+        print("✅ Бот успешно запущен и работает...")
+        
+        application.run_polling()
+        
+    except Exception as e:
+        logger.error(f"❌ Критическая ошибка при запуске бота: {e}")
+        print(f"❌ Критическая ошибка: {e}")
+        import traceback
+        traceback.print_exc()
 
-        // Показать информацию о выводе
-        function showWithdraw() {
-            showNotification('💸 Для вывода средств используйте команду /withdraw в боте');
-        }
-
-        // Обновление интерфейса
-        function updateUI() {
-            // Обновление балансов
-            document.getElementById('balance').textContent = userData.balance.toFixed(6);
-            document.getElementById('total-deposits').textContent = userData.total_deposits.toFixed(6);
-            document.getElementById('total-mined').textContent = userData.total_mined.toFixed(6);
-            
-            // Обновление раздела майнинга
-            document.getElementById('mining-balance').textContent = userData.pending_mining.toFixed(6);
-            document.getElementById('mining-percentage').textContent = userData.mining_percentage + '%';
-            document.getElementById('mining-power').textContent = userData.mining_started ? '100%' : '0%';
-            
-            // Обновление раздела рефералов
-            document.getElementById('referral-balance').textContent = userData.referral_balance.toFixed(6);
-            document.getElementById('referral-count').textContent = userData.referrals_count;
-            
-            // Обновление профиля
-            document.getElementById('profile-nickname').textContent = userData.nickname;
-            document.getElementById('user-nickname').textContent = userData.nickname;
-            document.getElementById('profile-user-id').textContent = userData.user_id || "Не определен";
-            document.getElementById('deposit-user-id').textContent = userData.user_id || "Не определен";
-            document.getElementById('mining-status').textContent = userData.mining_started ? 'Активен ✓' : 'Не активен';
-            
-            // Обновление прогресса майнинга
-            const progress = userData.mining_started ? (100 - (timeLeft / (8 * 3600)) * 100) : 0;
-            document.getElementById('progressFill').style.width = Math.min(progress, 100) + '%';
-        }
-
-        // Обновление таймера
-        function updateTimer() {
-            if (timeLeft <= 0 || !userData.mining_started) {
-                if (timeLeft <= 0 && userData.mining_started && !isMiningCompleted) {
-                    isMiningCompleted = true;
-                    showNotification('✅ Майнинг завершен! Соберите награду.');
-                }
-                document.getElementById('timer').textContent = '08:00:00';
-                return;
-            }
-
-            const hours = Math.floor(timeLeft / 3600);
-            const minutes = Math.floor((timeLeft % 3600) / 60);
-            const seconds = timeLeft % 60;
-            
-            document.getElementById('timer').textContent = 
-                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            
-            timeLeft--;
-        }
-
-        // Переключение между разделами
-        function showSection(section) {
-            // Скрываем все разделы
-            document.querySelectorAll('.section').forEach(sec => {
-                sec.classList.remove('active');
-            });
-            
-            // Убираем активный класс у всех пунктов навигации
-            document.querySelectorAll('.nav-item').forEach(item => {
-                item.classList.remove('active');
-            });
-            
-            // Показываем выбранный раздел
-            document.getElementById(section + '-section').classList.add('active');
-            
-            // Активируем соответствующий пункт навигации
-            if (['main', 'mining', 'referrals', 'profile'].includes(section)) {
-                const navIndex = ['main', 'mining', 'referrals', 'profile'].indexOf(section);
-                document.querySelectorAll('.nav-item')[navIndex].classList.add('active');
-            }
-            
-            // Обновляем заголовки
-            const titles = {
-                'main': '⛏️ TonEarn',
-                'mining': '⚙️ Майнинг',
-                'referrals': '👥 Рефералы',
-                'profile': '👤 Профиль',
-                'deposit': '💰 Пополнение'
-            };
-            
-            const subtitles = {
-                'main': 'Майнинг TON каждые 8 часов',
-                'mining': 'Управление майнингом',
-                'referrals': 'Реферальная программа',
-                'profile': 'Ваш профиль',
-                'deposit': 'Пополнение баланса'
-            };
-            
-            document.getElementById('headerTitle').textContent = titles[section];
-            document.getElementById('headerSubtitle').textContent = subtitles[section];
-        }
-
-        // Показать уведомление
-        function showNotification(message) {
-            const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.classList.add('show');
-            
-            setTimeout(() => {
-                notification.classList.remove('show');
-            }, 3000);
-        }
-
-        // Инициализация при загрузке страницы
-        document.addEventListener('DOMContentLoaded', function() {
-            initTelegramUser();
-            
-            // Запускаем таймер
-            timerInterval = setInterval(updateTimer, 1000);
-            
-            // Приветственное сообщение
-            setTimeout(() => {
-                showNotification('✨ Добро пожаловать в TonEarn!');
-            }, 1000);
-        });
-    </script>
-</body>
-</html>
+if __name__ == '__main__':
+    main()
