@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TonEarn</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        .card {
+            background: white;
+            color: #333;
+            border-radius: 20px;
+            padding: 30px;
+            margin: 20px 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+        
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #5a6fd8;
+        }
+        
+        .user-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            text-align: left;
+        }
+        
+        .deposit-info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            display: none;
+        }
+        
+        .wallet-address {
+            font-family: monospace;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⛏️ TonEarn</h1>
+        
+        <div class="card">
+            <div class="user-info">
+                <p>👤 Ваш ID: <b id="user-id">...</b></p>
+                <p>💰 Баланс: <b id="balance">0.000000 TON</b></p>
+                <p>⛏️ Накопано: <b id="mined">0.000000 TON</b></p>
+            </div>
+            
+            <button class="btn" onclick="startMining()">🚀 Начать майнинг</button>
+            <button class="btn" onclick="toggleDeposit()">💰 Пополнить баланс</button>
+            <button class="btn" onclick="showReferrals()">👥 Рефералы</button>
+            
+            <div id="deposit-info" class="deposit-info">
+                <h3>💳 Пополнение баланса</h3>
+                <p>Отправьте TON на адрес:</p>
+                <div class="wallet-address">UQCH1F3tgQ8yyqYHxZyFBw6_Y3tfYu91KP5ko16mM7CPaWY5</div>
+                <p>В комментарии укажите ваш ID</p>
+                <p>Минимум: 0.1 TON</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Инициализация Telegram Web App
+        let tg = window.Telegram.WebApp;
+        
+        // Расширяем на весь экран
+        tg.expand();
+        
+        // Показываем Main Button
+        tg.MainButton.setText("📱 Открыть в боте").show();
+        tg.MainButton.onClick(function() {
+            tg.close();
+        });
+        
+        // Получаем данные пользователя
+        const user = tg.initDataUnsafe.user;
+        if (user) {
+            document.getElementById('user-id').textContent = user.id;
+            document.getElementById('balance').textContent = '1.500000 TON';
+            document.getElementById('mined').textContent = '0.250000 TON';
+        }
+        
+        // Функции приложения
+        function startMining() {
+            tg.showPopup({
+                title: '⛏️ Майнинг запущен',
+                message: 'Майнинг начался! Следующая награда через 8 часов.',
+                buttons: [{ type: 'ok' }]
+            });
+        }
+        
+        function toggleDeposit() {
+            const depositInfo = document.getElementById('deposit-info');
+            depositInfo.style.display = depositInfo.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        function showReferrals() {
+            const userId = user ? user.id : 'unknown';
+            tg.showPopup({
+                title: '👥 Реферальная программа',
+                message: 'Ваша ссылка: https://t.me/tonearnro_bot?start=ref' + userId + '\n\nБонус: 0.2 TON за каждого реферала',
+                buttons: [{ type: 'ok' }]
+            });
+        }
+        
+        // Логируем успешную загрузку
+        console.log('TonEarn Mini App успешно загружен');
+        console.log('User ID:', user ? user.id : 'unknown');
+    </script>
+</body>
+</html>
