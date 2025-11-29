@@ -14,7 +14,7 @@
         }
 
         body {
-            background: linear-gradient(135deg, #fff9db 0%, #fff3bf 100%);
+            background: white;
             color: #333;
             min-height: 100vh;
             padding: 0;
@@ -26,28 +26,21 @@
             margin: 0 auto;
             background: white;
             min-height: 100vh;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
             position: relative;
         }
 
         .header {
-            background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
-            padding: 25px 20px;
+            background: white;
+            padding: 20px;
             text-align: center;
             color: #333;
-            border-bottom: 3px solid #f59f00;
+            border-bottom: 1px solid #f0f0f0;
         }
 
         .header h1 {
             font-size: 24px;
             font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .header p {
-            font-size: 14px;
-            opacity: 0.9;
-            line-height: 1.4;
+            margin-bottom: 5px;
         }
 
         .content {
@@ -64,13 +57,12 @@
         }
 
         .balance-card {
-            background: linear-gradient(135deg, #fff9db 0%, #ffec99 100%);
+            background: #f8f9fa;
             border-radius: 15px;
             padding: 25px;
             text-align: center;
             margin-bottom: 20px;
-            border: 2px solid #ffd700;
-            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
+            border: 1px solid #e9ecef;
         }
 
         .balance-label {
@@ -105,7 +97,7 @@
             border-radius: 12px;
             padding: 15px;
             text-align: center;
-            border: 1px solid #ffd700;
+            border: 1px solid #e9ecef;
         }
 
         .stat-value {
@@ -132,12 +124,11 @@
             width: 100%;
             margin-bottom: 15px;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
         }
 
         .action-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
         }
 
         .action-btn:active {
@@ -193,7 +184,7 @@
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 15px;
-            border: 1px solid #ffd700;
+            border: 1px solid #e9ecef;
         }
 
         .referral-code {
@@ -213,13 +204,12 @@
             display: grid;
             grid-template-columns: 1fr 1fr 1fr 1fr;
             background: white;
-            border-top: 3px solid #ffd700;
+            border-top: 1px solid #f0f0f0;
             padding: 12px 5px;
             position: fixed;
             bottom: 0;
             width: 100%;
             max-width: 400px;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
         }
 
         .nav-item {
@@ -238,7 +228,7 @@
         }
 
         .nav-item.active {
-            background: #fff9db;
+            background: #f8f9fa;
             color: #333;
             font-weight: 600;
         }
@@ -296,7 +286,7 @@
         .loader {
             width: 80px;
             height: 80px;
-            border: 8px solid #ffec99;
+            border: 8px solid #f0f0f0;
             border-top: 8px solid #ffd700;
             border-radius: 50%;
             animation: spin 1.5s linear infinite;
@@ -315,7 +305,7 @@
         .progress-loader {
             width: 200px;
             height: 8px;
-            background: #ffec99;
+            background: #f0f0f0;
             border-radius: 4px;
             margin: 20px auto;
             overflow: hidden;
@@ -363,7 +353,7 @@
         .input-field {
             width: 100%;
             padding: 12px 15px;
-            border: 2px solid #ffd700;
+            border: 2px solid #e9ecef;
             border-radius: 10px;
             font-size: 16px;
             background: white;
@@ -372,8 +362,8 @@
 
         .input-field:focus {
             outline: none;
-            border-color: #f59f00;
-            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.3);
+            border-color: #ffd700;
+            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
         }
 
         .withdraw-info {
@@ -432,7 +422,6 @@
     <div class="container">
         <div class="header">
             <h1 id="headerTitle">⛏️ TonEarn</h1>
-            <p id="headerSubtitle">Майнинг TON каждые 8 часов</p>
         </div>
 
         <div class="content">
@@ -649,7 +638,6 @@
                     </div>
                     
                     <h2 style="margin-bottom: 10px; color: #333;">TonEarn</h2>
-                    <p style="margin-bottom: 30px; color: #666;">Майнинг TON каждые 8 часов</p>
                     
                     <div class="progress-loader">
                         <div class="progress-loader-fill" id="loading-progress"></div>
@@ -1159,18 +1147,7 @@
                 'loading': '⏳ Загрузка'
             };
             
-            const subtitles = {
-                'main': 'Майнинг TON каждые 8 часов',
-                'mining': 'Управление майнингом',
-                'referrals': 'Реферальная программа',
-                'profile': 'Ваш профиль',
-                'deposit': 'Пополнение баланса',
-                'withdraw': 'Вывод средств на кошелек',
-                'loading': 'Получаем данные...'
-            };
-            
             document.getElementById('headerTitle').textContent = titles[section];
-            document.getElementById('headerSubtitle').textContent = subtitles[section];
         }
 
         // Показать уведомление
