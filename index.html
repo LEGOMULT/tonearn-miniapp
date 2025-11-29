@@ -277,8 +277,75 @@
 
         .loading {
             text-align: center;
-            padding: 20px;
+            padding: 40px 20px;
             color: #666;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+        }
+
+        .loader-container {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            margin: 20px auto;
+        }
+
+        .loader {
+            width: 80px;
+            height: 80px;
+            border: 8px solid #ffec99;
+            border-top: 8px solid #ffd700;
+            border-radius: 50%;
+            animation: spin 1.5s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        .loader-logo {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 32px;
+            animation: pulse 2s infinite;
+        }
+
+        .loading-dots {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            background: #ffd700;
+            border-radius: 50%;
+            margin: 0 5px;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+
+        .progress-loader {
+            width: 200px;
+            height: 8px;
+            background: #ffec99;
+            border-radius: 4px;
+            margin: 20px auto;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-loader-fill {
+            position: absolute;
+            height: 100%;
+            background: linear-gradient(90deg, #ffd700 0%, #ffed4a 100%);
+            border-radius: 4px;
+            animation: progress 2s ease-in-out infinite;
         }
 
         .error-message {
@@ -352,6 +419,41 @@
         .fee-info .stat-value {
             color: #856404;
             font-size: 16px;
+        }
+
+        /* Анимации */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% { 
+                transform: scale(0);
+            } 40% { 
+                transform: scale(1.0);
+            }
+        }
+
+        @keyframes progress {
+            0% { width: 0%; left: 0%; }
+            50% { width: 100%; left: 0%; }
+            100% { width: 0%; left: 100%; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
         }
     </style>
 </head>
@@ -572,10 +674,26 @@
             <!-- Загрузка -->
             <div class="section active" id="loading-section">
                 <div class="loading">
-                    <div class="balance-amount">⏳</div>
-                    <div class="balance-label">Загрузка данных...</div>
-                    <p style="margin-top: 10px; font-size: 14px; color: #666;">
-                        Подключаемся к боту...
+                    <div class="loader-container">
+                        <div class="loader"></div>
+                        <div class="loader-logo">⛏️</div>
+                    </div>
+                    
+                    <h2 style="margin-bottom: 10px; color: #333;">TonEarn</h2>
+                    <p style="margin-bottom: 30px; color: #666;">Майнинг TON каждые 8 часов</p>
+                    
+                    <div class="loading-dots">
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                    </div>
+                    
+                    <div class="progress-loader">
+                        <div class="progress-loader-fill"></div>
+                    </div>
+                    
+                    <p style="margin-top: 30px; font-size: 14px; color: #999;">
+                        Загрузка данных пользователя...
                     </p>
                 </div>
             </div>
@@ -684,6 +802,9 @@
             // Инициализируем Telegram Web App
             const tgAvailable = initTelegramWebApp();
             
+            // Имитируем задержку загрузки данных
+            await new Promise(resolve => setTimeout(resolve, 2500));
+            
             if (tgAvailable) {
                 const tgUser = getTelegramUserData();
                 if (tgUser) {
@@ -708,10 +829,13 @@
             
             updateUI();
             
-            // Переходим на главный экран после загрузки
+            // Плавный переход на главный экран после загрузки
             setTimeout(() => {
-                showSection('main');
-            }, 1500);
+                document.getElementById('loading-section').classList.add('fade-in');
+                setTimeout(() => {
+                    showSection('main');
+                }, 500);
+            }, 500);
 
             // Запускаем автоматическое обновление данных
             startAutoRefresh();
