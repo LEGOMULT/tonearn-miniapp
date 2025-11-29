@@ -802,13 +802,13 @@
         // Загрузка данных из бота
         function loadBotData() {
             try {
-                // Тестовые данные для демонстрации
-                userData.balance = 1.5;
-                userData.total_deposits = 2.0;
-                userData.total_mined = 0.5;
-                userData.referrals_count = 3;
+                // Начальные данные - все нули
+                userData.balance = 0;
+                userData.total_deposits = 0;
+                userData.total_mined = 0;
+                userData.referrals_count = 0;
                 userData.mining_started = false;
-                userData.mining_percentage = 1.45;
+                userData.mining_percentage = 0;
                 userData.pending_mining = 0;
                 userData.referral_code = `https://t.me/tonearnro_bot?start=ref${userData.user_id}`;
                 
@@ -858,15 +858,8 @@
             // Имитируем проверку пополнений
             setTimeout(() => {
                 // В реальном приложении здесь будет проверка транзакций
-                const newDeposit = Math.random() > 0.7 ? 0.5 : 0; // 30% шанс нового депозита
-                if (newDeposit > 0) {
-                    userData.balance += newDeposit;
-                    userData.total_deposits += newDeposit;
-                    updateUI();
-                    showNotification(`✅ Обнаружено пополнение: ${newDeposit} TON!`);
-                } else {
-                    showNotification('ℹ️ Новых пополнений не обнаружено');
-                }
+                // Для демонстрации оставляем возможность пополнения, но без автоматического зачисления
+                showNotification('ℹ️ Новых пополнений не обнаружено. Отправьте TON на указанный адрес с вашим ID в комментарии.');
             }, 2000);
         }
 
@@ -944,7 +937,7 @@
             }
             
             if (userData.total_deposits <= 0) {
-                showNotification('❌ Нет депозитов для майнинга!');
+                showNotification('❌ Нет депозитов для майнинга! Сначала пополните баланс.');
                 showSection('deposit');
                 return;
             }
